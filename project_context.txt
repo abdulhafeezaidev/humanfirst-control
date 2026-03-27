@@ -1,0 +1,420 @@
+HUMANFIRST CONTROL - COMPREHENSIVE PROJECT BRIEF
+Generated: 2026-03-19
+Purpose: Transfer full project context to another Claude instance for continued development support.
+
+==================================================
+1) PROJECT OVERVIEW
+==================================================
+Project name: HumanFirst Control
+
+What it does:
+HumanFirst Control is an ethical AI-usage control platform for education. It is designed for exam/focus enforcement with policy-based allowlisting (apps/domains) while explicitly avoiding surveillance-style monitoring.
+
+Primary goals:
+- Enforce institution-defined exam/focus policies in a transparent way.
+- Restrict disallowed apps and domains during active policy windows.
+- Provide admin governance (policy lifecycle, audit logs, metrics, invitations, role management).
+- Provide student transparency (what is restricted, why, and when).
+- Support assignment mode with browser + editor risk telemetry.
+- Operate as a pilot-ready system for schools/institutions.
+
+Stated ethical boundaries (from docs/readme):
+- No keystroke logging.
+- No screen recording.
+- No content reading/spying.
+- No AI-cheating accusations.
+- Enforcement-first, not surveillance.
+
+Current maturity:
+- Pilot-ready v0.1 according to repository documentation.
+- Real code exists across web app + Supabase backend + Windows agent + Electron desktop wrapper.
+
+
+==================================================
+2) TECH STACK
+==================================================
+Frontend/web app:
+- TypeScript + React 18
+- Vite 5 (build/dev)
+- React Router v6
+- TanStack React Query v5
+- Tailwind CSS + shadcn/ui + Radix UI primitives
+- React Hook Form + Zod
+- Recharts for dashboard analytics
+- Sonner and custom toast UI
+
+Desktop app:
+- Electron 33
+- electron-builder (NSIS packaging for Windows)
+- Preload/main process scripts in CommonJS
+
+Backend and data:
+- Supabase (Postgres + Auth + Edge Functions + RLS)
+- supabase-js client in frontend
+- SQL migration-based schema evolution
+
+Windows enforcement agent:
+- C# / .NET 8 worker service
+- Windows Service hosting
+- WFP-oriented monitoring code (Windows Filtering Platform)
+- Named Pipe IPC server
+- Serilog structured logging
+- Local policy persistence/cache support
+
+Tooling and quality:
+- ESLint
+- TypeScript compiler checks
+- Vitest + jsdom test setup
+- npm scripts for dev/build/test/lint/typecheck
+
+Packaging/build/deploy helpers:
+- PowerShell/CMD scripts under scripts/
+- Electron packaging modes (package/dist)
+- Desktop and web build modes
+
+
+==================================================
+3) PROJECT STRUCTURE
+==================================================
+Root-level key areas:
+
+src/
+- Main React application code.
+- pages/: route-level UI (admin, student, auth, assignment mode, metrics, logs, settings).
+- components/: UI + domain components (admin, policy, assignment, monitoring, analytics, trust, license, pilot, reports, etc.).
+- hooks/: custom hooks for data access and runtime behavior (policies, tamper, metrics, assignment risk, etc.).
+- services/: service layer logic (example: DomainTracker for AI-domain checks).
+- contexts/: app contexts (auth/session).
+- integrations/supabase/: frontend Supabase client/config/types.
+- types/: domain typing (policy, organization, risk, metrics, compliance).
+- test/: smoke tests + QA checklist artifacts.
+
+agent/ControlPlane.Agent/
+- .NET Windows service project for enforcement.
+- Services/: policy manager, enforcement engine, WFP monitor, activity/domain tracking, clipboard/tamper handling, named pipe server.
+- Program.cs/AgentWorker.cs service startup and hosted worker flow.
+- install-service.ps1 / uninstall-service.ps1 for Windows service lifecycle.
+
+electron/
+- Desktop main process (window lifecycle, runtime behavior).
+- preload bridge and splash screen.
+
+supabase/
+- config.toml (project + function settings).
+- migrations/ (schema and policy evolution files).
+- functions/ Edge Functions (admin mgmt, assignment risk events/verification, audit, retention cleanup, metrics, export).
+
+docs/
+- Feature guides, architecture docs, pilot checklist, productization plan, setup and migration docs.
+
+scripts/
+- Build automation and utility scripts for desktop/web and environment workflows.
+
+public/
+- Static public assets.
+
+Other notable root files:
+- package.json (scripts/dependencies)
+- vite/ts/eslint/tailwind/postcss config files
+- electron-builder.json
+- humanfirst-control.sln (agent solution)
+- ethics/policy/admin model markdown docs
+
+
+==================================================
+4) CORE FEATURES (IMPLEMENTED SO FAR)
+==================================================
+A) Policy-driven exam/focus enforcement
+- Admin can define policies with schedule windows.
+- Policy constraints include blocked categories and URL/domain restrictions.
+- Student experience reflects active policy constraints.
+
+B) App/domain control model
+- Agent enforces app-level restrictions (process-based controls).
+- Domain model exists in schema and logic; partial WFP enforcement implementation is present (see known issues).
+
+C) Admin dashboard (v2)
+- Policy management and operations pages.
+- Student/admin management pages.
+- Enforcement, settings, data export, and audit views.
+- Analytics/monitoring dashboards.
+
+D) Assignment mode and integrity telemetry
+- Full-page assignment mode route.
+- Controlled browser/editor workflow.
+- Domain tracking and assignment risk event ingestion.
+- Risk score tables and hooks for monitoring and analysis.
+
+E) RBAC and organization model
+- Roles include super_admin/admin/viewer/student patterns.
+- Multi-tenant organization model with RLS boundaries.
+
+F) Audit logging and retention support
+- Audit logs table and UI.
+- Retention/cleanup function exists.
+
+G) Tamper and trust monitoring
+- Tamper event model and UI components.
+- Pending queue/flush behavior in some hooks for resilience.
+
+H) Desktop packaging and distribution path
+- Electron packaging scripts and config for Windows distribution.
+
+
+==================================================
+5) KEY FILES
+==================================================
+Core app and routing:
+- src/App.tsx
+  Main app composition, providers, route table, and BrowserRouter/HashRouter switching for desktop/file protocol.
+
+- src/main.tsx
+  React entrypoint.
+
+Admin/student pages:
+- src/pages/AdminDashboardV2.tsx
+  Main admin surface.
+- src/pages/PolicyManagement.tsx
+  Policy management UX.
+- src/pages/StudentDashboard.tsx
+  Student-facing dashboard.
+- src/pages/AuditLogsPage.tsx
+  Audit exploration UI.
+- src/pages/AssignmentModeFullPage.tsx
+  Assignment mode route.
+
+Assignment/integrity components:
+- src/components/assignment/ControlledWebBrowser.tsx
+- src/components/assignment/AssignmentModeWorkspace.tsx
+- src/components/assignment/AssignmentRichTextEditor.tsx
+
+Domain/risk logic:
+- src/services/DomainTracker.ts
+  Domain classification and AI-service related logic in client-side flow.
+- src/hooks/useAssignmentModeRiskMonitor.ts
+  Assignment risk monitoring behavior.
+- src/hooks/useAgentRiskEvents.ts
+  Agent risk event usage path.
+
+Auth/integration:
+- src/contexts/AuthContext.tsx
+  Auth/session context.
+- src/integrations/supabase/client.ts
+  Supabase client configuration.
+
+Agent service:
+- agent/ControlPlane.Agent/Program.cs
+  Service host setup and dependency wiring.
+- agent/ControlPlane.Agent/AgentWorker.cs
+  Runtime worker lifecycle.
+- agent/ControlPlane.Agent/Services/EnforcementEngine.cs
+  Core enforcement loop and controls.
+- agent/ControlPlane.Agent/Services/WfpMonitor.cs
+  WFP monitoring logic.
+- agent/ControlPlane.Agent/Services/NamedPipeServer.cs
+  IPC endpoint.
+- agent/ControlPlane.Agent/appsettings.json
+  Runtime config.
+
+Supabase backend:
+- supabase/config.toml
+  Project/function configuration (verify_jwt flags where declared).
+- supabase/migrations/*.sql
+  Full schema and policy timeline.
+- supabase/functions/*/index.ts
+  Edge function handlers.
+
+Build and packaging:
+- package.json
+  Scripts + dependency manifest.
+- electron/main.cjs
+  Desktop app lifecycle.
+- electron-builder.json
+  Packaging configuration.
+- scripts/electron-build.mjs
+  Desktop build orchestration.
+
+Roadmap and ops docs:
+- docs/PRODUCTIZATION.md
+- docs/PILOT_ADMIN_CHECKLIST.md
+- docs/ARCHITECTURE_WEBVIEW2.md
+- docs/ASSIGNMENT_MODE_IMPLEMENTATION_SUMMARY.md
+
+
+==================================================
+6) DATABASE / DATA MODELS
+==================================================
+Data platform:
+- Supabase Postgres with RLS-heavy model.
+
+Migration status:
+- 36 migration files currently present under supabase/migrations.
+- Includes initial schema, org/role evolution, policy tables, metrics/audit, assignment risk additions, and repair/restoration migrations.
+
+Major entities (observed across migrations and code usage):
+- organizations
+- profiles
+- user_roles
+- exam_policies
+- policy_assignments
+- blocked_urls
+- ai_services
+- tamper_events
+- audit_logs
+- metrics_daily / metrics_monthly
+- assignment_risk_events
+- assignment_risk_scores
+
+Assignment risk schema highlights:
+- assignment_risk_events stores event-level telemetry with event_type, domain, metadata, character_count, and timestamps.
+- assignment_risk_scores stores aggregated per-user/per-assignment scores with risk level and factor counts.
+
+RBAC + tenant boundaries:
+- Role-aware access policies via RLS.
+- Organization-scoped data isolation (org/organization_id patterns).
+
+Data governance patterns:
+- Audit-centric operations.
+- Retention/cleanup function present for lifecycle management.
+
+
+==================================================
+7) APIS & INTEGRATIONS
+==================================================
+Supabase Edge Functions directory includes:
+- admin-management
+- assignment-risk-event
+- assignment-verify-domain
+- audit-logs
+- data-export
+- data-retention-cleanup
+- enforcement-metrics
+- metrics-aggregator
+- _shared
+
+Auth and API notes:
+- Supabase auth is integrated into frontend session flow.
+- Function JWT requirements vary by function; config.toml currently explicitly lists:
+  - admin-management: verify_jwt = true
+  - audit-logs: verify_jwt = true
+  - data-retention-cleanup: verify_jwt = true
+  - enforcement-metrics: verify_jwt = true
+  - metrics-aggregator: verify_jwt = false
+  - data-export: verify_jwt = false
+- Some function directories exist without corresponding explicit config entries in config.toml (possible default behavior or config drift to review).
+
+Desktop/agent integration:
+- Named pipe integration path between desktop and agent components exists.
+
+External integrations/tooling:
+- Supabase backend and auth.
+- Electron runtime for desktop.
+- Optional deployment guidance references web hosting targets (Vercel/Netlify) in docs.
+
+
+==================================================
+8) CURRENT PROGRESS (DONE / IN PROGRESS / PENDING)
+==================================================
+DONE (high confidence):
+- Web app architecture with broad admin/student page coverage.
+- Supabase-backed auth and data integration.
+- Multi-table schema with RLS policies and role hierarchy patterns.
+- Assignment risk table infrastructure and related client hooks.
+- Audit and export surfaces.
+- Desktop packaging pipeline and Windows agent project structure.
+- Pilot operations documentation and productization planning docs.
+
+IN PROGRESS / PARTIAL:
+- Domain-level enforcement appears partially implemented at agent level.
+- Productization hardening (security/ops/commercialization) is documented but not fully closed.
+- QA checklist artifacts show significant TBD checkpoints.
+
+PENDING / PLANNED (from docs and TODOs):
+- Complete WFP-based domain filtering path in enforcement engine.
+- Replace placeholder license validation with server-backed production flow.
+- Expand automated tests beyond smoke/basic checks.
+- Finalize production hardening decisions (CORS, rate limits, environment strategy, billing/licensing).
+- Progress through pilot timeline checkpoints and post-pilot decision branches.
+
+
+==================================================
+9) KNOWN ISSUES / BUGS / LIMITATIONS
+==================================================
+1) Domain enforcement TODO in agent
+- File: agent/ControlPlane.Agent/Services/EnforcementEngine.cs
+- There is an explicit TODO and placeholder log path stating WFP domain filtering is not yet implemented in that method path.
+- Practical impact: app-level controls may be stronger than current domain-level enforcement behavior in that specific flow.
+
+2) License upgrade validation is placeholder logic
+- File: src/components/license/UpgradeDialog.tsx
+- Contains explicit production warning comments and format-only client-side validation.
+- Practical impact: not production-grade licensing security; requires server validation flow.
+
+3) Test completeness gap
+- Limited formal test footprint relative to scope.
+- QA checklist under src/test/qa includes many TBD rows.
+- Practical impact: elevated regression risk for complex policy/enforcement changes.
+
+4) Config consistency risk for function auth flags
+- supabase/config.toml explicitly configures only a subset of function directories.
+- Practical impact: verify per-function auth/CORS expectations before production rollout.
+
+5) Type safety strictness settings
+- TS config is not fully strict in this codebase.
+- Practical impact: easier development velocity but increased chance of runtime type defects.
+
+
+==================================================
+10) NEXT STEPS (RECOMMENDED)
+==================================================
+Priority 1: Close enforcement gap
+- Implement and validate WFP-based domain filtering in the agent path currently marked TODO.
+- Add integration tests or controlled validation scripts for domain policy behavior.
+
+Priority 2: Productionize licensing/security-critical flows
+- Replace client placeholder license checks with secure server-side validation.
+- Harden edge-function access controls and CORS/rate limiting where needed.
+- Audit all functions for consistent verify_jwt/cors policy and least-privilege behavior.
+
+Priority 3: Raise quality assurance baseline
+- Add meaningful automated tests for:
+  - Policy creation/assignment lifecycle
+  - Student policy visibility and isolation
+  - Assignment risk event ingestion and scoring
+  - Admin role hierarchy operations
+- Convert QA checklist TBD items into executable checks where possible.
+
+Priority 4: Operational hardening
+- Formalize dev/staging/prod environment split and deployment runbooks.
+- Ensure monitoring, retention, backup, and incident-response paths are tested.
+
+Priority 5: Pilot execution and product decisions
+- Continue pilot checklist cadence (weekly metrics + issue handling).
+- Finalize strategic path (SaaS-first vs desktop-first priorities) and align roadmap.
+
+
+==================================================
+ADDITIONAL HANDOFF NOTES FOR CLAUDE
+==================================================
+- This project spans three major runtime domains:
+  1) React web product (admin/student UX)
+  2) Supabase data/API backend with RLS-heavy tenancy model
+  3) Windows agent + Electron desktop wrapper for enforcement operations
+
+- When changing behavior, always trace impacts across all three domains (UI state, DB policy/security, and agent enforcement path).
+
+- Treat docs and code jointly: docs are strong and structured, but some production-critical paths remain placeholders/TODO.
+
+- Highest-risk modifications are in:
+  - Policy enforcement engine (agent)
+  - Role/tenancy and RLS behavior (Supabase)
+  - Assignment integrity/risk event pipeline
+
+- Suggested first verification command sequence for a new assistant:
+  - npm install
+  - npm run typecheck
+  - npm run lint
+  - npm run test
+  - Review key TODO files listed in section 9
+
+End of brief.

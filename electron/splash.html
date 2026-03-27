@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HumanFirst Control</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+      html, body {
+        height: 100%;
+        margin: 0;
+        background: #0b1020;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+        color: #e6e9ff;
+      }
+      .wrap {
+        height: 100%;
+        display: grid;
+        place-items: center;
+        padding: 24px;
+      }
+      .card {
+        width: 100%;
+        max-width: 420px;
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 16px;
+        padding: 22px 20px;
+        background: rgba(255,255,255,0.03);
+        box-shadow: 0 10px 40px rgba(0,0,0,0.35);
+      }
+      .title {
+        font-weight: 700;
+        font-size: 18px;
+        margin: 0 0 6px;
+        letter-spacing: 0.2px;
+      }
+      .subtitle {
+        margin: 0 0 18px;
+        color: rgba(230,233,255,0.75);
+        font-size: 13px;
+        line-height: 1.35;
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .spinner {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        border: 2px solid rgba(230,233,255,0.25);
+        border-top-color: rgba(230,233,255,0.9);
+        animation: spin 900ms linear infinite;
+      }
+      .loading {
+        font-size: 13px;
+        color: rgba(230,233,255,0.8);
+      }
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <div class="card">
+        <p class="title">HumanFirst Control</p>
+        <p class="subtitle">Starting up…</p>
+        <div class="row">
+          <div class="spinner" aria-hidden="true"></div>
+          <div class="loading">Loading interface</div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,17 @@
+HumanFirst Lovable Export → Supabase (Dry Run)
+
+Run from repo root:
+  S:\HumanFirst\humanfirst-control
+
+1) (If needed) set env vars in this PowerShell window:
+
+  $env:SUPABASE_URL="https://vhmabzrpanixljbdpjob.supabase.co"
+  $env:SUPABASE_SERVICE_ROLE_KEY="PASTE_REAL_SERVICE_ROLE_KEY_HERE"   # looks like: eyJ...
+
+IMPORTANT:
+- Use the NEW project's **service_role** key (NOT the anon/public key)
+- Do not leave the placeholder text ("YOUR_SERVICE_ROLE_KEY")
+
+2) Dry-run importer (no writes):
+
+  node .\scripts\import-lovable-export.mjs --exportDir .\exports\humanfirst-export-2026-01-27T11-39-28 --dry-run

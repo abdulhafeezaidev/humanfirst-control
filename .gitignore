@@ -1,0 +1,74 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Local exports (may contain sensitive data)
+exports/
+
+# Electron build outputs
+desktop/dist/
+desktop/logs/
+
+# Electron builder cache
+.cache/
+
+# .NET build outputs
+**/bin/
+**/obj/
+**/publish/
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.sample.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sw?
+
+# Supabase temp files
+supabase/.branches/
+supabase/.temp/
+
+# Environment
+.env
+.env.local
+
+# Local Copilot/agent skill configuration
+.agents/
+
+# Dependency and package manager caches
+.npm/
+.pnpm-store/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Temporary files
+temp/
+*.tmp
+*.temp
+
+# Local build outputs
+out/
+release/
+
+# Local archives
+*.zip
+*.tar.gz
+
+# Local scripts outputs
+*.pid

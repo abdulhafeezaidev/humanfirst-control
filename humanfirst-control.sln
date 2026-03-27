@@ -1,0 +1,29 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "agent", "agent", "{A0596E84-2522-6F31-0F43-77167BFA80D0}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ControlPlane.Agent", "agent\ControlPlane.Agent\ControlPlane.Agent.csproj", "{6C0E3356-67DF-4ADB-9AA0-82ADAD376914}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{6C0E3356-67DF-4ADB-9AA0-82ADAD376914}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6C0E3356-67DF-4ADB-9AA0-82ADAD376914}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6C0E3356-67DF-4ADB-9AA0-82ADAD376914}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6C0E3356-67DF-4ADB-9AA0-82ADAD376914}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{6C0E3356-67DF-4ADB-9AA0-82ADAD376914} = {A0596E84-2522-6F31-0F43-77167BFA80D0}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {FF3A9CD0-DDDA-44D7-9E0F-D83BB2A53EAF}
+	EndGlobalSection
+EndGlobal

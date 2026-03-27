@@ -1,0 +1,8 @@
+{
+  "recommendations": [
+    "supabase.supabase",
+    "ms-azuretools.vscode-postgresql",
+    "ckolkman.vscode-postgres",
+    "uniquevision.vscode-plpgsql-lsp"
+  ]
+}

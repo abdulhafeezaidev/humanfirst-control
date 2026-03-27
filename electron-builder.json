@@ -1,0 +1,27 @@
+{
+  "appId": "com.humanfirst.control",
+  "productName": "HumanFirst Control",
+  "directories": {
+    "output": "desktop/dist"
+  },
+  "files": [
+    "dist/**",
+    "electron/**",
+    "package.json"
+  ],
+  "asar": true,
+  "win": {
+    "icon": "public/favicon.ico",
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      }
+    ]
+  },
+  "nsis": {
+    "oneClick": false,
+    "perMachine": false,
+    "allowToChangeInstallationDirectory": true
+  }
+}

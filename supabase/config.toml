@@ -1,0 +1,26 @@
+project_id = "rwvgeoplgctnrgnflglf"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[functions.admin-management]
+verify_jwt = true
+
+[functions.audit-logs]
+verify_jwt = true
+
+[functions.data-retention-cleanup]
+verify_jwt = true
+
+[functions.enforcement-metrics]
+verify_jwt = true
+
+[functions.metrics-aggregator]
+verify_jwt = false
+
+[functions.data-export]
+verify_jwt = false

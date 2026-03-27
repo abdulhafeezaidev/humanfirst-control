@@ -1,0 +1,16 @@
+{
+  // Safe template: do NOT commit real DB passwords.
+  // Copy to .vscode/settings.json (which is gitignored) if you want per-workspace settings.
+
+  // Treat .sql/.psql/.pgsql as Postgres so extensions enable completions/diagnostics.
+  "files.associations": {
+    "*.sql": "postgres",
+    "*.psql": "postgres",
+    "*.pgsql": "postgres"
+  }
+
+  // NOTE: The "PostgreSQL Language Server" (uniquevision.vscode-plpgsql-lsp) supports
+  // host/port/user/password/database, but it does NOT expose an SSL setting.
+  // Supabase Postgres requires SSL, so use a query tool extension (recommended in extensions.json)
+  // for actual cloud DB connections.
+}

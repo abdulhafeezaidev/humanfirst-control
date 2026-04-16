@@ -526,20 +526,15 @@ function applyAssignmentMode(win, enabled) {
     win.setMenuBarVisibility(false);
     win.setAutoHideMenuBar(true);
 
-    // Prevent resizing, minimizing, maximizing during assignment
-    win.setResizable(false);
-    win.setMinimizable(false);
-    win.setMaximizable(false);
+    // Assignment mode should remain usable: allow normal window controls.
+    try { win.setKiosk(false); } catch { /* some platforms */ }
+    win.setFullScreen(false);
+    win.setAlwaysOnTop(false);
+    win.setVisibleOnAllWorkspaces(false);
+    win.setResizable(true);
+    win.setMinimizable(true);
+    win.setMaximizable(true);
     win.setFullScreenable(true);
-
-    // Enter full-screen mode (kiosk-like) to prevent desktop switching
-    try { win.setKiosk(true); } catch { /* some platforms */ }
-    win.setFullScreen(true);
-    win.setAlwaysOnTop(true, 'screen-saver');
-
-    // setVisibleOnAllWorkspaces with visibleOnFullScreen helps prevent virtual desktop switching
-    win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-    win.focus();
   } else {
     try { win.setKiosk(false); } catch { /* some platforms */ }
     win.setFullScreen(false);
@@ -630,30 +625,15 @@ function createMainWindow() {
     if (!inRestrictiveMode) return;
 
     const key = (input.key || '').toLowerCase();
-    const isWindows = process.platform === 'win32';
+    const inExamMode = examModeEnabled;
 
     // Block mode escape shortcuts
     const isReload = key === 'f5' || ((input.control || input.meta) && key === 'r');
     const isDevtools = key === 'f12' || ((input.control || input.meta) && input.shift && (key === 'i' || key === 'j' || key === 'c'));
     const isClose = input.alt && key === 'f4';
 
-    // Additional blocks for assignment mode (prevent desktop/task switching)
-    let shouldBlock = isReload || isDevtools || isClose;
-    if (assignmentModeEnabled && isWindows) {
-      // Block Windows key (to prevent desktop switching, virtual desktop, start menu)
-      const isWindowsKey = key === 'os' || key === 'meta' || key === 'command';
-
-      // Block Alt+Tab and Alt+Esc (task switcher)
-      const isAltTab = input.alt && (key === 'tab' || key === 'escape');
-
-      // Block Ctrl+Alt+Tab (multi-window task switcher)
-      const isCtrlAltTab = input.control && input.alt && key === 'tab';
-
-      // Block Ctrl+Alt+Down/Up (virtual desktop switching on Windows)
-      const isVirtualDesktopSwitch = input.control && input.alt && (key === 'arrowdown' || key === 'arrowup');
-
-      shouldBlock = shouldBlock || isWindowsKey || isAltTab || isCtrlAltTab || isVirtualDesktopSwitch;
-    }
+    // Assignment mode allows normal quitting/resizing; exam mode remains strict.
+    const shouldBlock = isReload || isDevtools || (inExamMode && isClose);
 
     if (shouldBlock) {
       event.preventDefault();
@@ -804,6 +784,11 @@ app.whenReady().then(async () => {
     const enabled = !!(payload && payload.enabled);
 
     if (enabled) {
+      // Assignment mode should never trap users in exam lock mode.
+      examModeEnabled = false;
+      if (mainWindow && !mainWindow.isDestroyed()) applyExamMode(mainWindow, false);
+      sendToRenderer('hf/examMode:changed', { enabled: false, source: 'assignment-mode' });
+
       assignmentModeEnabled = true;
       if (mainWindow && !mainWindow.isDestroyed()) applyAssignmentMode(mainWindow, true);
       sendToRenderer('hf/assignmentMode:changed', { enabled: true, source: 'renderer' });

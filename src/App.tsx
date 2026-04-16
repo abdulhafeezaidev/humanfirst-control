@@ -48,7 +48,8 @@ function shouldUseHashRouter() {
 }
 
 const App = () => (
-  <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+  <>
+    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <AuthProvider>
@@ -141,7 +142,9 @@ const App = () => (
         </AuthProvider>
       </TooltipProvider>
     </QueryClientProvider>
-  </ThemeProvider>
+
+    </ThemeProvider>
+  </>
 );
 
 export default App;

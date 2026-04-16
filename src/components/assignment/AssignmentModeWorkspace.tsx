@@ -18,7 +18,7 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import { AlertTriangle, Chrome, BookOpen, GripVertical } from 'lucide-react';
+import { AlertTriangle, Chrome, BookOpen, GripVertical, LogOut } from 'lucide-react';
 import { ControlledWebBrowser } from './ControlledWebBrowser';
 import { AssignmentRichTextEditor } from './AssignmentRichTextEditor';
 import { DomainTracker } from '@/services/DomainTracker';
@@ -35,11 +35,14 @@ import {
   AlertDialogDescription,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
 
 interface AssignmentModeWorkspaceProps {
   assignmentId?: string;
   assignmentTitle?: string;
   instruction?: string;
+  onQuitAssignment?: () => void;
+  quitting?: boolean;
 }
 
 interface AIDomainAlert {
@@ -53,6 +56,8 @@ export function AssignmentModeWorkspace({
   assignmentId,
   assignmentTitle = 'Assignment Work',
   instruction = 'Complete your assignment. Use the browser on the right to research. AI tools will be monitored.',
+  onQuitAssignment,
+  quitting = false,
 }: AssignmentModeWorkspaceProps) {
   const [showAIAlert, setShowAIAlert] = useState(false);
   const [aiAlert, setAiAlert] = useState<AIDomainAlert | null>(null);
@@ -121,6 +126,19 @@ export function AssignmentModeWorkspace({
             <span className="text-sm text-slate-400">
               Built-in research browser
             </span>
+            {onQuitAssignment && (
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                onClick={onQuitAssignment}
+                disabled={quitting}
+                className="ml-3 h-8 gap-1"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+                {quitting ? 'Quitting...' : 'Quit Assignment'}
+              </Button>
+            )}
           </div>
         </div>
       </div>

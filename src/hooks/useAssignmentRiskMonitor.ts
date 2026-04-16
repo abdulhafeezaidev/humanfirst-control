@@ -2,121 +2,125 @@ import { useCallback, useRef, useState } from "react";
 import type { AssignmentRiskEvent } from "@/types/assignmentRisk";
 import { reportDomainVisit, sendRiskEvent } from "@/lib/assignmentRiskApi";
 
-const LARGE_PASTE_LOG_THRESHOLD = 200;     // Log all pastes > 200 chars
-const LARGE_PASTE_WARNING_THRESHOLD = 500; // Show warning popup for pastes > 500 chars
-const SUSPICIOUS_CHAR_THRESHOLD = 300;
-const SUSPICIOUS_TIME_WINDOW_MS = 2_000;
+const PASTE_LOG_MIN = 50;
+const PASTE_LARGE_THRESHOLD = 200;
+const TYPING_ANOMALY_CHARS = 300;
+const TYPING_ANOMALY_WINDOW_MS = 5_000;
 
-/**
- * Tracks typing speed and paste events in an assignment editor.
- * Produces risk events without blocking user input.
- * 
- * Layer 4 - PASTE DETECTION:
- * - Log all pastes > 200 characters (character count only, never content)
- * - Show warning popup for pastes > 500 characters
- * - No blocking - friction only
- */
 export function useAssignmentRiskMonitor(assignmentId?: string) {
   const [riskEvents, setRiskEvents] = useState<AssignmentRiskEvent[]>([]);
   const [showPasteWarning, setShowPasteWarning] = useState(false);
   const [lastPasteLength, setLastPasteLength] = useState(0);
+  const [pendingPasteAcknowledgement, setPendingPasteAcknowledgement] = useState<{
+    characterCount: number;
+    occurredAt: string;
+    pasteIndex: number;
+  } | null>(null);
+  const [lastPasteMeta, setLastPasteMeta] = useState<{
+    characterCount: number;
+    occurredAt: string;
+    pasteIndex: number;
+    isLarge: boolean;
+  } | null>(null);
   const [showIntegrityReminder, setShowIntegrityReminder] = useState(false);
   const [integrityTrigger, setIntegrityTrigger] = useState("");
 
-  // Keystroke tracking for suspicious insert detection
-  const keystrokeBuffer = useRef<number[]>([]);
+  const contentSnapshots = useRef<Array<{ at: number; length: number }>>([]);
+  const pasteIndexRef = useRef(0);
+  const lastPasteEventAtRef = useRef(0);
 
   const pushEvent = useCallback((event: AssignmentRiskEvent) => {
     const enriched = { ...event, assignment_id: assignmentId };
     setRiskEvents((prev) => [...prev, enriched]);
-    sendRiskEvent(enriched);
+    void sendRiskEvent(enriched);
   }, [assignmentId]);
 
-  /** Show the integrity reminder modal for a given trigger event type. */
   const triggerIntegrityReminder = useCallback((trigger: string) => {
     setIntegrityTrigger(trigger);
     setShowIntegrityReminder(true);
   }, []);
 
-  /**
-   * Call from the editor's paste handler.
-   * Returns true if the paste is large (caller may show friction modal).
-   * 
-   * Specification compliance:
-   * - Log event for pastes > 200 characters
-   * - Show warning popup for pastes > 500 characters
-   */
-  const handlePaste = useCallback(
-    (pastedText: string): boolean => {
-      const charCount = pastedText.length;
+  const handlePaste = useCallback((pastedText: string) => {
+    const charCount = pastedText.length;
+    const now = Date.now();
+    const occurredAt = new Date(now).toISOString();
+    pasteIndexRef.current += 1;
+    const nextIndex = pasteIndexRef.current;
 
-      // Log all large pastes (> 200 chars)
-      if (charCount > LARGE_PASTE_LOG_THRESHOLD) {
-        const event: AssignmentRiskEvent = {
-          type: "editor_large_paste",
-          length: charCount,
-          timestamp: Date.now(),
-        };
-        pushEvent(event);
-        setLastPasteLength(charCount);
+    setLastPasteLength(charCount);
+    setLastPasteMeta({
+      characterCount: charCount,
+      occurredAt,
+      pasteIndex: nextIndex,
+      isLarge: charCount > PASTE_LARGE_THRESHOLD,
+    });
+    lastPasteEventAtRef.current = now;
 
-        // Show warning popup for very large pastes (> 500 chars)
-        if (charCount > LARGE_PASTE_WARNING_THRESHOLD) {
-          setShowPasteWarning(true);
-          triggerIntegrityReminder("editor_large_paste");
-        }
+    if (charCount < PASTE_LOG_MIN) return;
 
-        return charCount > LARGE_PASTE_WARNING_THRESHOLD;
-      }
-      return false;
-    },
-    [pushEvent, triggerIntegrityReminder],
-  );
+    if (charCount <= PASTE_LARGE_THRESHOLD) {
+      pushEvent({
+        type: "paste_detected",
+        length: charCount,
+        timestamp: now,
+      });
+      return;
+    }
 
-  /**
-   * Call on every keydown/input in the editor.
-   * Internally tracks characters-per-window for suspicious insert detection.
-   */
-  const handleKeystroke = useCallback(
-    (charsInserted: number = 1) => {
-      const now = Date.now();
-      // Add entries for every character inserted
-      for (let i = 0; i < charsInserted; i++) {
-        keystrokeBuffer.current.push(now);
-      }
+    setPendingPasteAcknowledgement({ characterCount: charCount, occurredAt, pasteIndex: nextIndex });
+    setShowPasteWarning(true);
+    triggerIntegrityReminder("large_paste_detected");
+    pushEvent({
+      type: "large_paste_detected",
+      length: charCount,
+      timestamp: now,
+      severity_level: "MEDIUM",
+    });
+  }, [pushEvent, triggerIntegrityReminder]);
 
-      // Evict entries older than the time window
-      const cutoff = now - SUSPICIOUS_TIME_WINDOW_MS;
-      keystrokeBuffer.current = keystrokeBuffer.current.filter((t) => t >= cutoff);
+  const handleContentLength = useCallback((nextLength: number) => {
+    const now = Date.now();
+    contentSnapshots.current.push({ at: now, length: nextLength });
+    contentSnapshots.current = contentSnapshots.current.filter((s) => now - s.at <= TYPING_ANOMALY_WINDOW_MS);
 
-      if (keystrokeBuffer.current.length > SUSPICIOUS_CHAR_THRESHOLD) {
-        const event: AssignmentRiskEvent = {
-          type: "suspicious_insert",
-          length: keystrokeBuffer.current.length,
-          timestamp: now,
-        };
-        pushEvent(event);
-        triggerIntegrityReminder("suspicious_insert");
-        // Reset buffer so we don't fire repeatedly for the same burst
-        keystrokeBuffer.current = [];
-      }
-    },
-    [pushEvent],
-  );
+    if (contentSnapshots.current.length < 2) return;
+    if (now - lastPasteEventAtRef.current < 1500) return;
 
-  const dismissPasteWarning = useCallback(() => {
+    const oldest = contentSnapshots.current[0];
+    const newest = contentSnapshots.current[contentSnapshots.current.length - 1];
+    const charactersAdded = newest.length - oldest.length;
+    const timeSeconds = Math.max(0.001, (newest.at - oldest.at) / 1000);
+    if (charactersAdded <= TYPING_ANOMALY_CHARS || timeSeconds >= 5) return;
+
+    pushEvent({
+      type: "typing_anomaly",
+      length: charactersAdded,
+      timestamp: now,
+      severity_level: "MEDIUM",
+    });
+    triggerIntegrityReminder("typing_anomaly");
+    contentSnapshots.current = [];
+  }, [pushEvent, triggerIntegrityReminder]);
+
+  const acknowledgePasteWarning = useCallback(() => {
+    if (pendingPasteAcknowledgement) {
+      pushEvent({
+        type: "paste_acknowledged",
+        length: pendingPasteAcknowledgement.characterCount,
+        timestamp: Date.now(),
+      });
+    }
+    setPendingPasteAcknowledgement(null);
     setShowPasteWarning(false);
-  }, []);
+  }, [pendingPasteAcknowledgement, pushEvent]);
 
   const dismissIntegrityReminder = useCallback(() => {
     setShowIntegrityReminder(false);
   }, []);
 
-  /** Handle an externally-received risk event (e.g. from the agent via IPC). */
   const handleExternalRiskEvent = useCallback(
     (event: AssignmentRiskEvent) => {
       if (event.type === "ai_domain_visit" && event.domain) {
-        // Unknown domains are verified server-side before they are scored as AI usage.
         void reportDomainVisit({
           domain: event.domain,
           assignmentId: assignmentId,
@@ -139,12 +143,14 @@ export function useAssignmentRiskMonitor(assignmentId?: string) {
     riskEvents,
     showPasteWarning,
     lastPasteLength,
+    pendingPasteAcknowledgement,
+    lastPasteMeta,
     showIntegrityReminder,
     integrityTrigger,
     handlePaste,
-    handleKeystroke,
+    handleContentLength,
     handleExternalRiskEvent,
-    dismissPasteWarning,
+    acknowledgePasteWarning,
     dismissIntegrityReminder,
   };
 }

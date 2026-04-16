@@ -1,5 +1,13 @@
 export interface AssignmentRiskEvent {
-  type: "editor_large_paste" | "suspicious_insert" | "ai_domain_visit" | "extended_research_no_typing";
+  type:
+    | "editor_large_paste"
+    | "suspicious_insert"
+    | "ai_domain_visit"
+    | "extended_research_no_typing"
+    | "paste_detected"
+    | "large_paste_detected"
+    | "paste_acknowledged"
+    | "typing_anomaly";
   length?: number;
   domain?: string;
   assignment_id?: string;

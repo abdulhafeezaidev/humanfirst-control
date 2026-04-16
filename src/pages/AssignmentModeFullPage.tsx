@@ -12,18 +12,24 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { AssignmentModeWorkspace } from '@/components/assignment/AssignmentModeWorkspace';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2 } from 'lucide-react';
+import { Loader2, FolderLock, FolderCheck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
 
 interface AssignmentRecord {
   id: string;
   title?: string | null;
   description?: string | null;
   instruction?: string | null;
-}
-
-interface PolicyRecord {
-  id: string;
 }
 
 export default function AssignmentModeFullPage() {
@@ -34,6 +40,9 @@ export default function AssignmentModeFullPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [quitting, setQuitting] = useState(false);
+  const [sessionFolderPath, setSessionFolderPath] = useState<string>('');
+  const [folderDialogOpen, setFolderDialogOpen] = useState(false);
+  const [folderSelecting, setFolderSelecting] = useState(false);
   const sessionIdRef = useRef<string | null>(null);
   const userIdRef = useRef<string | null>(null);
 
@@ -139,6 +148,26 @@ export default function AssignmentModeFullPage() {
     navigate('/student');
   }, [assignmentId, logQuitAndNotifyAdmin, navigate, toast]);
 
+  const ensureLockedSessionFolder = useCallback(async () => {
+    const api = window.humanfirstDesktop;
+    if (!api?.isDesktop || !api.getSessionFolder || !api.setSessionFolder || !api.fileDialog?.openFolder) {
+      return true;
+    }
+
+    try {
+      const current = await api.getSessionFolder();
+      if (current?.locked && current.path) {
+        setSessionFolderPath(current.path);
+        return true;
+      }
+      setFolderDialogOpen(true);
+      return false;
+    } catch {
+      setFolderDialogOpen(true);
+      return false;
+    }
+  }, []);
+
   useEffect(() => {
     const fetchAssignment = async () => {
       if (!assignmentId) {
@@ -148,7 +177,6 @@ export default function AssignmentModeFullPage() {
       }
 
       try {
-        // Verify user is authenticated
         const { data: user } = await supabase.auth.getUser();
         if (!user.user) {
           navigate('/login');
@@ -156,8 +184,12 @@ export default function AssignmentModeFullPage() {
         }
         userIdRef.current = user.user.id;
 
-        // Fetch assignment details
-        // Type cast for assignments table - update after Supabase types are generated
+        const folderReady = await ensureLockedSessionFolder();
+        if (!folderReady) {
+          setLoading(false);
+          return;
+        }
+
         const { data, error: fetchError } = await (supabase
           .from('assignments' as any)
           .select(
@@ -194,9 +226,54 @@ export default function AssignmentModeFullPage() {
     };
 
     fetchAssignment();
-  }, [assignmentId, navigate, ensureSession]);
+  }, [assignmentId, navigate, ensureSession, ensureLockedSessionFolder]);
 
-  // Enable assignment mode when assignment is loaded (desktop app only)
+  const handleChooseFolder = useCallback(async () => {
+    const api = window.humanfirstDesktop;
+    if (!api?.isDesktop || !api.fileDialog?.openFolder || !api.setSessionFolder) {
+      setFolderDialogOpen(false);
+      return;
+    }
+
+    try {
+      setFolderSelecting(true);
+      const result = await api.fileDialog.openFolder({
+        title: 'Choose Your Assignment Folder',
+      });
+      if (result?.cancelled || !result.filePaths || result.filePaths.length === 0) {
+        return;
+      }
+
+      const selectedPath = result.filePaths[0];
+      const lockResult = await api.setSessionFolder(selectedPath);
+      if (!lockResult?.ok || !lockResult.path) {
+        toast({
+          title: 'Could not lock folder',
+          description: lockResult?.error || 'Please try selecting the folder again.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      setSessionFolderPath(lockResult.path);
+      setFolderDialogOpen(false);
+      const folderName = lockResult.path.split('\\').pop() || lockResult.path;
+      toast({
+        title: 'Folder locked',
+        description: `📁 ${folderName} — locked for this session`,
+      });
+      setLoading(true);
+      const { data: user } = await supabase.auth.getUser();
+      if (user.user) {
+        userIdRef.current = user.user.id;
+        await ensureSession();
+      }
+      setLoading(false);
+    } finally {
+      setFolderSelecting(false);
+    }
+  }, [ensureSession, toast]);
+
   useEffect(() => {
     const api = window.humanfirstDesktop;
     if (!api?.isDesktop || !assignment) return;
@@ -205,7 +282,6 @@ export default function AssignmentModeFullPage() {
       console.warn('[Desktop] Failed to enable assignment mode', err);
     });
 
-    // Cleanup: disable assignment mode when leaving assignment page
     return () => {
       api.setAssignmentMode(false).catch((err) => {
         console.warn('[Desktop] Failed to disable assignment mode', err);
@@ -215,7 +291,6 @@ export default function AssignmentModeFullPage() {
 
   useEffect(() => {
     return () => {
-      // Best-effort telemetry for accidental navigation/window close.
       void logQuitAndNotifyAdmin('window_close');
     };
   }, [logQuitAndNotifyAdmin]);
@@ -249,16 +324,51 @@ export default function AssignmentModeFullPage() {
   }
 
   return (
-    <AssignmentModeWorkspace
-      assignmentId={assignment.id}
-      assignmentTitle={assignment.title || 'Assignment'}
-      onQuitAssignment={handleQuitAssignment}
-      quitting={quitting}
-      instruction={
-        assignment.instruction ||
-        assignment.description ||
-        'Complete your assignment using the browser on the right for research.'
-      }
-    />
+    <>
+      <AlertDialog open={folderDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <FolderLock className="h-5 w-5 text-primary" />
+              Choose Your Assignment Folder
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Select a folder where your assignment will be saved. You will only be able to access this folder during submission.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction asChild>
+              <Button onClick={handleChooseFolder} disabled={folderSelecting}>
+                {folderSelecting ? 'Choosing...' : 'Choose Folder'}
+              </Button>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {sessionFolderPath && (
+        <div className="fixed right-4 top-4 z-50 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-200 shadow">
+          <span className="inline-flex items-center gap-1">
+            <FolderCheck className="h-3.5 w-3.5" />
+            📁 {sessionFolderPath.split('\\').pop()} — locked for this session
+          </span>
+        </div>
+      )}
+
+      {!folderDialogOpen && (
+        <AssignmentModeWorkspace
+          assignmentId={assignment.id}
+          assignmentTitle={assignment.title || 'Assignment'}
+          onQuitAssignment={handleQuitAssignment}
+          quitting={quitting}
+          lockedFolderPath={sessionFolderPath}
+          instruction={
+            assignment.instruction ||
+            assignment.description ||
+            'Complete your assignment using the browser on the right for research.'
+          }
+        />
+      )}
+    </>
   );
 }

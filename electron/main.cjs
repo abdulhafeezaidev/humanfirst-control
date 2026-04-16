@@ -2,6 +2,8 @@ const { app, BrowserWindow, BrowserView, ipcMain, session, shell, globalShortcut
 const path = require('path');
 const crypto = require('crypto');
 const fs = require('fs');
+const { PDFDocument, StandardFonts, rgb, PDFName } = require('pdf-lib');
+const { htmlToText } = require('html-to-text');
 
 const isDev = !app.isPackaged;
 
@@ -127,6 +129,8 @@ let agentPolicyEnabled = false;
 let assignmentBrowserView = null;
 let browserViewBounds = { x: 0, y: 0, width: 0, height: 0 };
 let browserViewHidden = false;
+let lockedSessionFolderPath = '';
+let submissionLockDomain = '';
 
 const BLOCKED_DOMAIN_PATTERNS = [
   'openai.com',
@@ -255,6 +259,114 @@ function isBlockedUrl(url) {
   return { blocked: false, domain };
 }
 
+function shouldBlockBySubmissionLock(url) {
+  if (!submissionLockDomain) return { blocked: false, domain: '' };
+  const domain = extractDomainFromUrl(url);
+  if (!domain) return { blocked: false, domain };
+  const allowed =
+    domain === submissionLockDomain ||
+    domain.endsWith(`.${submissionLockDomain}`) ||
+    submissionLockDomain.endsWith(`.${domain}`);
+  return { blocked: !allowed, domain };
+}
+
+function sanitizeFilePart(value) {
+  return String(value || 'assignment')
+    .replace(/[<>:"/\\|?*\u0000-\u001F]/g, '')
+    .replace(/\s+/g, '_')
+    .slice(0, 80) || 'assignment';
+}
+
+function ensureLockedSessionFolder() {
+  if (!lockedSessionFolderPath) {
+    throw new Error('Session folder is not locked');
+  }
+  if (!fs.existsSync(lockedSessionFolderPath)) {
+    throw new Error('Locked session folder does not exist');
+  }
+  return lockedSessionFolderPath;
+}
+
+function buildHumanFirstXmp(metadata) {
+  return `<?xpacket begin="﻿" id="W5M0MpCehiHzreSzNTczkc9d"?>
+<x:xmpmeta xmlns:x="adobe:ns:meta/">
+  <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+    <rdf:Description rdf:about="" xmlns:humanfirst="https://humanfirst.ai/ns/export/1.0/">
+      <humanfirst:export_id>${String(metadata.export_id || '')}</humanfirst:export_id>
+      <humanfirst:session_id>${String(metadata.session_id || '')}</humanfirst:session_id>
+      <humanfirst:content_hash>${String(metadata.content_hash || '')}</humanfirst:content_hash>
+      <humanfirst:signature>${String(metadata.signature || '')}</humanfirst:signature>
+      <humanfirst:export_timestamp>${String(metadata.export_timestamp || '')}</humanfirst:export_timestamp>
+    </rdf:Description>
+  </rdf:RDF>
+</x:xmpmeta>
+<?xpacket end="w"?>`;
+}
+
+async function generatePdfWithMetadata({ htmlContent, studentName, assignmentName, metadata }) {
+  const text = htmlToText(String(htmlContent || ''), {
+    wordwrap: 100,
+    selectors: [{ selector: 'img', format: 'skip' }],
+  });
+
+  const pdfDoc = await PDFDocument.create();
+  pdfDoc.setTitle(`${studentName} — Assignment`);
+  pdfDoc.setAuthor('HumanFirst Control');
+  pdfDoc.setSubject(assignmentName || 'Assignment');
+  pdfDoc.setKeywords([]);
+  pdfDoc.setProducer('HumanFirst Control');
+  pdfDoc.setCreator('HumanFirst Control');
+
+  const font = await pdfDoc.embedFont(StandardFonts.TimesRoman);
+  const fontSize = 12;
+  const lineHeight = 16;
+  const margin = 48;
+  const pageWidth = 595;
+  const pageHeight = 842;
+  const maxWidth = pageWidth - margin * 2;
+  const lines = [];
+  const paragraphs = text.split(/\r?\n/);
+  for (const paragraph of paragraphs) {
+    const words = paragraph.split(/\s+/).filter(Boolean);
+    if (words.length === 0) {
+      lines.push('');
+      continue;
+    }
+    let current = '';
+    for (const word of words) {
+      const next = current ? `${current} ${word}` : word;
+      if (font.widthOfTextAtSize(next, fontSize) > maxWidth && current) {
+        lines.push(current);
+        current = word;
+      } else {
+        current = next;
+      }
+    }
+    if (current) lines.push(current);
+  }
+
+  let page = pdfDoc.addPage([pageWidth, pageHeight]);
+  let y = pageHeight - margin;
+  for (const line of lines) {
+    if (y < margin) {
+      page = pdfDoc.addPage([pageWidth, pageHeight]);
+      y = pageHeight - margin;
+    }
+    page.drawText(line, { x: margin, y, size: fontSize, font, color: rgb(0, 0, 0) });
+    y -= lineHeight;
+  }
+
+  const xmp = buildHumanFirstXmp(metadata);
+  const metadataStream = pdfDoc.context.stream(xmp, {
+    Type: PDFName.of('Metadata'),
+    Subtype: PDFName.of('XML'),
+  });
+  const metadataRef = pdfDoc.context.register(metadataStream);
+  pdfDoc.catalog.set(PDFName.of('Metadata'), metadataRef);
+
+  return pdfDoc.save();
+}
+
 function getBrowserViewState() {
   if (!assignmentBrowserView || assignmentBrowserView.webContents.isDestroyed()) {
     return {
@@ -329,6 +441,16 @@ function ensureAssignmentBrowserView() {
 
   const wc = assignmentBrowserView.webContents;
   wc.setWindowOpenHandler(({ url }) => {
+    const submissionLock = shouldBlockBySubmissionLock(url);
+    if (submissionLock.blocked) {
+      sendToRenderer('hf/browserView:blocked', {
+        url,
+        domain: submissionLock.domain,
+        reason: 'submission_mode_locked',
+      });
+      return { action: 'deny' };
+    }
+
     const blocked = isBlockedUrl(url);
     if (blocked.blocked) {
       sendToRenderer('hf/browserView:blocked', {
@@ -344,6 +466,22 @@ function ensureAssignmentBrowserView() {
   });
 
   wc.on('will-navigate', (_event, url) => {
+    const submissionLock = shouldBlockBySubmissionLock(url);
+    if (submissionLock.blocked) {
+      try {
+        _event.preventDefault();
+      } catch {
+        // ignore
+      }
+      sendToRenderer('hf/browserView:blocked', {
+        url,
+        domain: submissionLock.domain,
+        reason: 'submission_mode_locked',
+      });
+      emitBrowserViewState();
+      return;
+    }
+
     const blocked = isBlockedUrl(url);
     if (blocked.blocked) {
       try {
@@ -558,6 +696,8 @@ function disableRestrictiveModesForShutdown(source = 'shutdown') {
   examModeEnabled = false;
   assignmentModeEnabled = false;
   agentPolicyEnabled = false;
+  lockedSessionFolderPath = '';
+  submissionLockDomain = '';
 
   try {
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -796,6 +936,8 @@ app.whenReady().then(async () => {
     }
 
     assignmentModeEnabled = false;
+    lockedSessionFolderPath = '';
+    submissionLockDomain = '';
     if (mainWindow && !mainWindow.isDestroyed()) applyAssignmentMode(mainWindow, false);
     sendToRenderer('hf/assignmentMode:changed', { enabled: false, source: 'renderer' });
     return { enabled: false };
@@ -1066,6 +1208,7 @@ app.whenReady().then(async () => {
         title: String(options?.title ?? 'Select File'),
         properties: Array.isArray(options?.properties) ? options.properties : ['openFile'],
         filters: Array.isArray(options?.filters) ? options.filters : [{ name: 'All Files', extensions: ['*'] }],
+        defaultPath: String(options?.defaultPath || ''),
       });
       return {
         cancelled: result.canceled,
@@ -1073,6 +1216,178 @@ app.whenReady().then(async () => {
       };
     } catch (e) {
       return { cancelled: true, filePaths: [], error: safeToString(e) };
+    }
+  });
+
+  ipcMain.handle('hf/fileDialog:openFolder', async (_event, options) => {
+    try {
+      const { dialog } = require('electron');
+      const result = await dialog.showOpenDialog(mainWindow || null, {
+        title: String(options?.title ?? 'Select Folder'),
+        properties: ['openDirectory'],
+        defaultPath: String(options?.defaultPath || ''),
+      });
+      return {
+        cancelled: result.canceled,
+        filePaths: result.filePaths || [],
+      };
+    } catch (e) {
+      return { cancelled: true, filePaths: [], error: safeToString(e) };
+    }
+  });
+
+  ipcMain.handle('hf/sessionFolder:get', () => ({
+    locked: !!lockedSessionFolderPath,
+    path: lockedSessionFolderPath,
+  }));
+
+  ipcMain.handle('hf/sessionFolder:set', (_event, payload) => {
+    try {
+      if (lockedSessionFolderPath) {
+        return { ok: false, locked: true, path: lockedSessionFolderPath, error: 'Session folder already locked' };
+      }
+      const selectedPath = String(payload?.path || '').trim();
+      if (!selectedPath) return { ok: false, locked: false, path: '', error: 'Folder path is required' };
+      const stat = fs.statSync(selectedPath);
+      if (!stat.isDirectory()) {
+        return { ok: false, locked: false, path: '', error: 'Selected path is not a folder' };
+      }
+      lockedSessionFolderPath = selectedPath;
+      return { ok: true, locked: true, path: lockedSessionFolderPath };
+    } catch (e) {
+      return { ok: false, locked: false, path: '', error: safeToString(e) };
+    }
+  });
+
+  ipcMain.handle('hf/assignment:draftSave', (_event, payload) => {
+    try {
+      const folder = ensureLockedSessionFolder();
+      const ts = new Date().toISOString();
+      const safeTs = ts.replace(/[:.]/g, '-');
+      const fileName = `assignment_draft_${safeTs}.json`;
+      const filePath = path.join(folder, fileName);
+      const draft = {
+        html: String(payload?.html || ''),
+        savedAt: String(payload?.savedAt || ts),
+      };
+      fs.writeFileSync(filePath, JSON.stringify(draft, null, 2), 'utf8');
+      return { ok: true, filePath, savedAt: draft.savedAt };
+    } catch (e) {
+      return { ok: false, error: safeToString(e) };
+    }
+  });
+
+  ipcMain.handle('hf/submissionLock:set', (_event, payload) => {
+    try {
+      const targetUrl = String(payload?.submissionUrl || '').trim();
+      if (!targetUrl) return { ok: false, error: 'submissionUrl is required' };
+      submissionLockDomain = extractDomainFromUrl(targetUrl);
+      return { ok: true, domain: submissionLockDomain };
+    } catch (e) {
+      return { ok: false, error: safeToString(e) };
+    }
+  });
+
+  ipcMain.handle('hf/submissionLock:clear', () => {
+    submissionLockDomain = '';
+    return { ok: true };
+  });
+
+  ipcMain.handle('hf/assignment:exportPdf', async (_event, payload) => {
+    try {
+      const folder = ensureLockedSessionFolder();
+
+      const htmlContent = String(payload?.htmlContent || '');
+      const studentName = String(payload?.studentName || 'Student');
+      const assignmentName = String(payload?.assignmentName || 'Assignment');
+      const sessionId = String(payload?.sessionId || '');
+      const studentId = String(payload?.studentId || '');
+      const policyId = String(payload?.policyId || '');
+      const orgId = String(payload?.orgId || '');
+      const accessToken = String(payload?.accessToken || '');
+      const supabaseUrl = String(payload?.supabaseUrl || '');
+      const supabaseAnonKey = String(payload?.supabaseAnonKey || '');
+
+      if (!sessionId || !studentId || !policyId || !orgId) {
+        return { ok: false, error: 'Missing required export metadata identifiers' };
+      }
+      if (!accessToken || !supabaseUrl || !supabaseAnonKey) {
+        return { ok: false, error: 'Missing Supabase auth context for signing' };
+      }
+
+      const plainText = htmlToText(htmlContent, {
+        wordwrap: false,
+        selectors: [{ selector: 'img', format: 'skip' }],
+      });
+      const contentHash = crypto.createHash('sha256').update(plainText, 'utf8').digest('hex');
+
+      const metadata = {
+        session_id: sessionId,
+        student_id: studentId,
+        policy_id: policyId,
+        org_id: orgId,
+        export_timestamp: new Date().toISOString(),
+        content_hash: contentHash,
+        app_version: app.getVersion(),
+        signature: null,
+      };
+
+      const signRes = await fetch(`${supabaseUrl}/functions/v1/sign-export`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          apikey: supabaseAnonKey,
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ metadata }),
+      });
+      if (!signRes.ok) {
+        const body = await signRes.text();
+        return { ok: false, error: `sign-export failed: ${signRes.status} ${body}` };
+      }
+      const signData = await signRes.json();
+      metadata.signature = String(signData?.signature || '');
+      metadata.export_id = String(signData?.export_id || '');
+      if (!metadata.signature || !metadata.export_id) {
+        return { ok: false, error: 'sign-export returned incomplete payload' };
+      }
+
+      const pdfBytes = await generatePdfWithMetadata({
+        htmlContent,
+        studentName,
+        assignmentName,
+        metadata,
+      });
+
+      const datePart = new Date().toISOString().slice(0, 10);
+      const fileName = `${sanitizeFilePart(studentName)}_${sanitizeFilePart(assignmentName)}_${datePart}.pdf`;
+      const filePath = path.join(folder, fileName);
+      fs.writeFileSync(filePath, Buffer.from(pdfBytes));
+      const stats = fs.statSync(filePath);
+
+      return {
+        ok: true,
+        filePath,
+        fileName,
+        fileSizeKb: Math.max(1, Math.round(stats.size / 1024)),
+        metadata,
+      };
+    } catch (e) {
+      return { ok: false, error: safeToString(e) };
+    }
+  });
+
+  ipcMain.handle('hf/app:quitAfterDelay', (_event, payload) => {
+    try {
+      const delayMs = Math.max(0, Number(payload?.delayMs) || 0);
+      setTimeout(() => {
+        isQuitting = true;
+        disableRestrictiveModesForShutdown('assignment-submitted');
+        app.quit();
+      }, delayMs);
+      return { ok: true, delayMs };
+    } catch (e) {
+      return { ok: false, error: safeToString(e) };
     }
   });
 

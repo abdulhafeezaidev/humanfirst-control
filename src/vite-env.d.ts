@@ -68,11 +68,65 @@ declare global {
 					title: string;
 					properties: string[];
 					filters: Array<{ name: string; extensions: string[] }>;
+					defaultPath?: string;
+				}) => Promise<{
+					cancelled?: boolean;
+					filePaths?: string[];
+				}>;
+				openFolder?: (options: {
+					title: string;
+					defaultPath?: string;
 				}) => Promise<{
 					cancelled?: boolean;
 					filePaths?: string[];
 				}>;
 			};
+			getSessionFolder?: () => Promise<{ locked: boolean; path: string }>;
+			setSessionFolder?: (path: string) => Promise<{
+				ok: boolean;
+				locked: boolean;
+				path: string;
+				error?: string;
+			}>;
+			saveAssignmentDraft?: (payload: {
+				html: string;
+				savedAt: string;
+			}) => Promise<{
+				ok: boolean;
+				filePath?: string;
+				savedAt?: string;
+				error?: string;
+			}>;
+			exportAssignmentPdf?: (payload: {
+				htmlContent: string;
+				studentName: string;
+				assignmentName: string;
+				sessionId: string;
+				studentId: string;
+				policyId: string;
+				orgId: string;
+				accessToken: string;
+				supabaseUrl: string;
+				supabaseAnonKey: string;
+			}) => Promise<{
+				ok: boolean;
+				filePath?: string;
+				fileName?: string;
+				fileSizeKb?: number;
+				metadata?: any;
+				error?: string;
+			}>;
+			quitAfterDelay?: (delayMs: number) => Promise<{
+				ok: boolean;
+				delayMs?: number;
+				error?: string;
+			}>;
+			setSubmissionLock?: (submissionUrl: string) => Promise<{
+				ok: boolean;
+				domain?: string;
+				error?: string;
+			}>;
+			clearSubmissionLock?: () => Promise<{ ok: boolean }>;
 			onBrowserViewState?: (callback: (payload: {
 				url: string;
 				canGoBack: boolean;

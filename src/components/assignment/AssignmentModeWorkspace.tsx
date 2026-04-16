@@ -22,6 +22,8 @@ import { AlertTriangle, Chrome, BookOpen, GripVertical, LogOut } from 'lucide-re
 import { ControlledWebBrowser } from './ControlledWebBrowser';
 import { AssignmentRichTextEditor } from './AssignmentRichTextEditor';
 import { DomainTracker } from '@/services/DomainTracker';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 import {
   Panel,
   PanelGroup,
@@ -41,6 +43,7 @@ interface AssignmentModeWorkspaceProps {
   assignmentId?: string;
   assignmentTitle?: string;
   instruction?: string;
+  lockedFolderPath?: string;
   onQuitAssignment?: () => void;
   quitting?: boolean;
 }
@@ -56,13 +59,70 @@ export function AssignmentModeWorkspace({
   assignmentId,
   assignmentTitle = 'Assignment Work',
   instruction = 'Complete your assignment. Use the browser on the right to research. AI tools will be monitored.',
+  lockedFolderPath,
   onQuitAssignment,
   quitting = false,
 }: AssignmentModeWorkspaceProps) {
+  const { toast } = useToast();
   const [showAIAlert, setShowAIAlert] = useState(false);
   const [aiAlert, setAiAlert] = useState<AIDomainAlert | null>(null);
   const [browserUrl, setBrowserUrl] = useState('https://www.google.com');
+  const [submissionMode, setSubmissionMode] = useState(false);
+  const [submissionUrl, setSubmissionUrl] = useState<string>();
+  const [successOverlay, setSuccessOverlay] = useState(false);
   const [domainTracker] = useState(() => new DomainTracker());
+
+  const [studentContext, setStudentContext] = useState<{
+    studentId: string;
+    orgId: string;
+    policyId: string;
+    sessionId: string;
+    submissionUrl: string;
+  } | null>(null);
+
+  const loadContext = useCallback(async () => {
+    if (!assignmentId || studentContext) return;
+    const { data: auth } = await supabase.auth.getUser();
+    if (!auth.user) return;
+    const studentId = auth.user.id;
+
+    const { data: profile } = await (supabase
+      .from('profiles' as any)
+      .select('organization_id')
+      .eq('id', studentId)
+      .maybeSingle() as any);
+
+    const { data: policy } = await (supabase
+      .from('exam_policies' as any)
+      .select('id,submission_url')
+      .eq('assignment_id', assignmentId)
+      .eq('is_active', true)
+      .order('start_time', { ascending: false })
+      .limit(1)
+      .maybeSingle() as any);
+
+    const { data: session } = await (supabase
+      .from('assignment_sessions' as any)
+      .select('id')
+      .eq('assignment_id', assignmentId)
+      .eq('student_id', studentId)
+      .eq('status', 'active')
+      .order('started_at', { ascending: false })
+      .limit(1)
+      .maybeSingle() as any);
+
+    if (!policy?.id || !profile?.organization_id || !session?.id) return;
+    setStudentContext({
+      studentId,
+      orgId: profile.organization_id,
+      policyId: policy.id,
+      sessionId: session.id,
+      submissionUrl: policy.submission_url || '',
+    });
+    if (policy.submission_url) {
+      setSubmissionUrl(policy.submission_url);
+    }
+  }, [assignmentId, studentContext]);
 
   /**
    * Handle domain navigation events from the browser
@@ -104,6 +164,63 @@ export function AssignmentModeWorkspace({
   const handleAcknowledgeAIWarning = useCallback(() => {
     setShowAIAlert(false);
   }, []);
+
+  const onExportedForSubmission = useCallback(async (payload: {
+    fileName: string;
+    filePath: string;
+    fileSizeKb: number;
+    exportId: string;
+  }) => {
+    if (!studentContext) return;
+    setSubmissionMode(true);
+    if (submissionUrl) {
+      setBrowserUrl(submissionUrl);
+    }
+    toast({
+      title: '✅ Assignment exported as PDF',
+      description: `Saved to: ${lockedFolderPath?.split('\\').pop() || 'locked folder'}\nNow submit it to your LMS below.`,
+    });
+    await (supabase.from('assignment_exports' as any)
+      .update({ file_name: payload.fileName, file_size_kb: payload.fileSizeKb })
+      .eq('export_id', payload.exportId) as any);
+  }, [lockedFolderPath, studentContext, submissionUrl, toast]);
+
+  const onSubmissionDetected = useCallback(async () => {
+    if (!studentContext) return;
+    const { data: latestExport } = await (supabase
+      .from('assignment_exports' as any)
+      .select('export_id')
+      .eq('session_id', studentContext.sessionId)
+      .order('exported_at', { ascending: false })
+      .limit(1)
+      .maybeSingle() as any);
+
+    if (latestExport?.export_id) {
+      await (supabase
+        .from('assignment_exports' as any)
+        .update({ verified: true, submitted_at: new Date().toISOString() })
+        .eq('export_id', latestExport.export_id) as any);
+    }
+
+    await (supabase.from('violation_logs' as any).insert({
+      student_id: studentContext.studentId,
+      policy_id: studentContext.policyId,
+      org_id: studentContext.orgId,
+      event_type: 'assignment_submitted',
+      session_id: studentContext.sessionId,
+      metadata: {
+        submitted_at: new Date().toISOString(),
+      },
+    }) as any);
+
+    setSuccessOverlay(true);
+    await window.humanfirstDesktop?.clearSubmissionLock?.();
+    await window.humanfirstDesktop?.quitAfterDelay?.(15000);
+  }, [studentContext]);
+
+  React.useEffect(() => {
+    void loadContext();
+  }, [loadContext]);
 
   return (
     <div className="flex h-screen w-full min-h-0 min-w-0 flex-col overflow-hidden bg-[#0f172a]">
@@ -161,7 +278,15 @@ export function AssignmentModeWorkspace({
                 <div className="min-h-0 flex-1">
                   <AssignmentRichTextEditor
                     assignmentId={assignmentId}
+                    assignmentTitle={assignmentTitle}
                     placeholder="Start writing your research essay here..."
+                    lockedFolderPath={lockedFolderPath}
+                    sessionId={studentContext?.sessionId}
+                    policyId={studentContext?.policyId}
+                    orgId={studentContext?.orgId}
+                    studentId={studentContext?.studentId}
+                    submissionUrl={studentContext?.submissionUrl}
+                    onExportedForSubmission={onExportedForSubmission}
                   />
                 </div>
               </div>
@@ -187,6 +312,9 @@ export function AssignmentModeWorkspace({
                 initialUrl={browserUrl}
                 onNavigate={handleBrowserNavigation}
                 assignmentId={assignmentId}
+                submissionMode={submissionMode}
+                submissionUrl={submissionUrl}
+                onSubmissionDetected={onSubmissionDetected}
               />
             </div>
           </Panel>
@@ -224,6 +352,15 @@ export function AssignmentModeWorkspace({
           </div>
         </AlertDialogContent>
       </AlertDialog>
+
+      {successOverlay && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+          <div className="rounded-xl border border-emerald-500/30 bg-[#0f172a] p-8 text-center text-emerald-200">
+            <p className="text-2xl font-semibold">✅ Submission Confirmed</p>
+            <p className="mt-2 text-sm">Session complete. App will close in 15 seconds.</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

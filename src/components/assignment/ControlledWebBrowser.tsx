@@ -164,10 +164,10 @@ export function ControlledWebBrowser({
    * Check if URL indicates submission completion
    */
   const checkForSubmissionConfirmation = useCallback(
-    (url: string) => {
+    (url: string, pageTitle?: string) => {
       const lowerUrl = url.toLowerCase();
       const urlPatterns = ['submit', 'confirm', 'success', 'thank', 'complete', 'received'];
-      const titlePatterns = ['submitted', 'received', 'success', 'complete'];
+      const titlePatterns = ['submitted', 'received', 'success', 'complete', 'thank'];
 
       // Check URL for confirmation patterns
       if (urlPatterns.some(pattern => lowerUrl.includes(pattern))) {
@@ -175,8 +175,10 @@ export function ControlledWebBrowser({
         return;
       }
 
-      // Note: Detecting page title changes would require DOM access
-      // This is handled via postMessage from the WebView if available
+      const lowerTitle = String(pageTitle || '').toLowerCase();
+      if (lowerTitle && titlePatterns.some(pattern => lowerTitle.includes(pattern))) {
+        onSubmissionDetected?.();
+      }
     },
     [onSubmissionDetected],
   );
@@ -539,6 +541,9 @@ export function ControlledWebBrowser({
       if (event.url) {
         setCurrentUrl(event.url);
         setDisplayUrl(event.url);
+        if (submissionMode) {
+          checkForSubmissionConfirmation(event.url);
+        }
       }
       updateNavState();
     };
@@ -565,7 +570,7 @@ export function ControlledWebBrowser({
       webview.removeEventListener('did-stop-loading', handleDidStopLoading);
       webview.removeEventListener('did-fail-load', handleDidFailLoad);
     };
-  }, [currentUrl, useBrowserView, getBlockedMatch, trackNavigatedUrl]);
+  }, [currentUrl, useBrowserView, getBlockedMatch, trackNavigatedUrl, submissionMode, checkForSubmissionConfirmation]);
 
   /**
    * Update webview src when currentUrl changes
@@ -597,6 +602,9 @@ export function ControlledWebBrowser({
         trackNavigatedUrl(nextUrl).catch((error) => {
           console.error('BrowserView state tracking failed:', error);
         });
+        if (submissionMode) {
+          checkForSubmissionConfirmation(nextUrl, payload.title);
+        }
       }
     });
 
@@ -633,7 +641,7 @@ export function ControlledWebBrowser({
         console.error('BrowserView destroy failed:', error);
       });
     };
-  }, [useBrowserView, desktopApi, trackNavigatedUrl]);
+  }, [useBrowserView, desktopApi, trackNavigatedUrl, submissionMode, checkForSubmissionConfirmation]);
 
   useEffect(() => {
     if (!useBrowserView || !desktopApi || !viewportRef.current) return;

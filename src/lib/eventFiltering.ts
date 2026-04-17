@@ -12,6 +12,8 @@ const STORABLE_EVENT_TYPES = new Set([
   'blocked_app_killed',
   'blocked_domain_attempt',
   'large_paste_detected',
+  'paste_detected',
+  'typing_anomaly',
   'paste_acknowledged',
   'app_focus_lost',
   'tamper_attempt',

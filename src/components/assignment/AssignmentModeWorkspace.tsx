@@ -80,6 +80,13 @@ export function AssignmentModeWorkspace({
     submissionUrl: string;
   } | null>(null);
 
+  const toUuid = useCallback((candidate?: string | null): string | null => {
+    const value = String(candidate || '').trim();
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+      ? value
+      : null;
+  }, []);
+
   const loadContext = useCallback(async () => {
     if (!assignmentId || studentContext) return;
     const { data: auth } = await supabase.auth.getUser();
@@ -111,18 +118,21 @@ export function AssignmentModeWorkspace({
       .limit(1)
       .maybeSingle() as any);
 
-    if (!policy?.id || !profile?.organization_id || !session?.id) return;
+    const policyId = toUuid(policy?.id);
+    const orgId = toUuid(profile?.organization_id);
+    const sessionId = toUuid(session?.id);
+    if (!policyId || !orgId || !sessionId) return;
     setStudentContext({
       studentId,
-      orgId: profile.organization_id,
-      policyId: policy.id,
-      sessionId: session.id,
+      orgId,
+      policyId,
+      sessionId,
       submissionUrl: policy.submission_url || '',
     });
     if (policy.submission_url) {
       setSubmissionUrl(policy.submission_url);
     }
-  }, [assignmentId, studentContext]);
+  }, [assignmentId, studentContext, toUuid]);
 
   /**
    * Handle domain navigation events from the browser
@@ -202,21 +212,24 @@ export function AssignmentModeWorkspace({
         .eq('export_id', latestExport.export_id) as any);
     }
 
-    await (supabase.from('violation_logs' as any).insert({
-      student_id: studentContext.studentId,
-      policy_id: studentContext.policyId,
-      org_id: studentContext.orgId,
-      event_type: 'assignment_submitted',
-      session_id: studentContext.sessionId,
-      metadata: {
-        submitted_at: new Date().toISOString(),
-      },
-    }) as any);
+    const studentUuid = toUuid(studentContext.studentId);
+    if (studentUuid) {
+      await (supabase.from('violation_logs' as any).insert({
+        student_id: studentUuid,
+        policy_id: studentContext.policyId,
+        org_id: studentContext.orgId,
+        event_type: 'assignment_submitted',
+        session_id: studentContext.sessionId,
+        metadata: {
+          submitted_at: new Date().toISOString(),
+        },
+      }) as any);
+    }
 
     setSuccessOverlay(true);
     await window.humanfirstDesktop?.clearSubmissionLock?.();
     await window.humanfirstDesktop?.quitAfterDelay?.(15000);
-  }, [studentContext]);
+  }, [studentContext, toUuid]);
 
   React.useEffect(() => {
     void loadContext();

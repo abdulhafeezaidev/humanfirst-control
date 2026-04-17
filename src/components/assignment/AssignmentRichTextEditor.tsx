@@ -64,6 +64,16 @@ function formatTimeAgo(ts: number | null): string {
   return `${hours} hour${hours === 1 ? "" : "s"} ago`;
 }
 
+function normalizeFontSizeForExecCommand(sizePt: number): string {
+  if (sizePt <= 10) return "1";
+  if (sizePt <= 12) return "2";
+  if (sizePt <= 16) return "3";
+  if (sizePt <= 24) return "4";
+  if (sizePt <= 36) return "5";
+  if (sizePt <= 48) return "6";
+  return "7";
+}
+
 export function AssignmentRichTextEditor({
   value,
   onChange,
@@ -86,11 +96,13 @@ export function AssignmentRichTextEditor({
   const [cols, setCols] = useState("2");
   const [showTableDialog, setShowTableDialog] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+
   const {
     pendingPasteAcknowledgement,
     lastPasteMeta,
     showIntegrityReminder,
     integrityTrigger,
+    lastTypingAnomalyMeta,
     handlePaste,
     handleContentLength,
     handleExternalRiskEvent,
@@ -127,7 +139,9 @@ export function AssignmentRichTextEditor({
       const html = editorRef.current.innerHTML;
       const savedAt = new Date().toISOString();
       const result = await api.saveAssignmentDraft({ html, savedAt });
-      if (result?.ok) setLastAutoSavedAt(Date.now());
+      if (result?.ok) {
+        setLastAutoSavedAt(Date.now());
+      }
     }, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, [lockedFolderPath]);
@@ -151,22 +165,40 @@ export function AssignmentRichTextEditor({
     });
   }, [lastPasteMeta, orgId, policyId, sessionId, studentId]);
 
+  useEffect(() => {
+    if (!lastTypingAnomalyMeta || !studentId || !policyId || !orgId) return;
+    void violationLogger.logViolation({
+      student_id: studentId,
+      policy_id: policyId,
+      org_id: orgId,
+      event_type: "typing_anomaly",
+      session_id: sessionId,
+      metadata: {
+        characters_added: lastTypingAnomalyMeta.charactersAdded,
+        time_seconds: Number(lastTypingAnomalyMeta.timeSeconds.toFixed(3)),
+        occurred_at: lastTypingAnomalyMeta.occurredAt,
+      },
+    });
+  }, [lastTypingAnomalyMeta, orgId, policyId, sessionId, studentId]);
+
   const onConfirmLargePaste = useCallback(async () => {
+    const pending = pendingPasteAcknowledgement;
     acknowledgePasteWarning();
-    if (!pendingPasteAcknowledgement || !studentId || !policyId || !orgId) return;
+    if (!pending || !studentId || !policyId || !orgId) return;
     await violationLogger.logViolation({
       student_id: studentId,
       policy_id: policyId,
       org_id: orgId,
       event_type: "paste_acknowledged",
       metadata: {
-        character_count: pendingPasteAcknowledgement.characterCount,
+        character_count: pending.characterCount,
+        paste_index: pending.pasteIndex,
         acknowledged: true,
-        occurred_at: pendingPasteAcknowledgement.occurredAt,
+        occurred_at: pending.occurredAt,
       },
       session_id: sessionId,
     });
-  }, [acknowledgePasteWarning, pendingPasteAcknowledgement, studentId, policyId, orgId, sessionId]);
+  }, [acknowledgePasteWarning, orgId, pendingPasteAcknowledgement, policyId, sessionId, studentId]);
 
   const handleInsertTable = useCallback(() => {
     const r = Math.max(1, Number(rows) || 1);
@@ -206,18 +238,14 @@ export function AssignmentRichTextEditor({
       });
       if (!result?.ok || !result.metadata?.export_id) return;
 
-      await (supabase.from("assignment_exports" as any).insert({
-        export_id: result.metadata.export_id,
-        session_id: sessionId,
-        student_id: studentId,
-        policy_id: policyId,
-        org_id: orgId,
-        content_hash: result.metadata.content_hash,
-        signature: result.metadata.signature,
-        file_name: result.fileName,
-        file_size_kb: result.fileSizeKb,
-        verified: false,
-      }) as any);
+      await (supabase.from("assignment_exports" as any)
+        .update({
+          file_name: result.fileName,
+          file_size_kb: result.fileSizeKb,
+          content_hash: result.metadata.content_hash,
+          signature: result.metadata.signature,
+        })
+        .eq("export_id", result.metadata.export_id) as any);
 
       if (submissionUrl && api.setSubmissionLock) {
         await api.setSubmissionLock(submissionUrl);
@@ -241,7 +269,8 @@ export function AssignmentRichTextEditor({
           <div className="rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-100">
             <p className="font-semibold">⚠️ Large Content Pasted</p>
             <p className="mt-1">
-              You pasted {pendingPasteAcknowledgement.characterCount} characters. Please confirm this is your own work and not AI generated content.
+              You pasted {pendingPasteAcknowledgement.characterCount} characters.
+              Please confirm this is your own work and not AI generated content.
             </p>
             <Button className="mt-2" size="sm" onClick={onConfirmLargePaste}>
               ✅ Yes, this is my own work
@@ -263,12 +292,15 @@ export function AssignmentRichTextEditor({
 
           <select
             className="h-9 rounded-md border bg-background px-2 text-sm"
-            onChange={(e) => execute("fontSize", e.target.value)}
+            onChange={(e) => {
+              const pt = Number(e.target.value);
+              execute("fontSize", normalizeFontSizeForExecCommand(pt));
+            }}
             defaultValue=""
           >
             <option value="" disabled>Size</option>
             {FONT_SIZES.map((size) => (
-              <option key={size} value={String(Math.min(7, Math.max(1, Math.floor(size / 10))))}>{size}pt</option>
+              <option key={size} value={String(size)}>{size}pt</option>
             ))}
           </select>
 

@@ -5,6 +5,7 @@ import {
   Users,
   UserCog,
   ScrollText,
+  ShieldCheck,
   Settings,
   Shield,
   Heart,
@@ -99,6 +100,12 @@ export const DashboardSidebar = ({ role, organizationName }: DashboardSidebarPro
       title: 'Audit Logs',
       url: '/admin/logs',
       icon: ScrollText,
+      roles: ['super_admin', 'admin', 'viewer'],
+    },
+    {
+      title: 'Verify Submission',
+      url: '/admin/verify-submission',
+      icon: ShieldCheck,
       roles: ['super_admin', 'admin', 'viewer'],
     },
     {

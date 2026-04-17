@@ -38,6 +38,7 @@ const DataExport = lazy(() => import("./pages/DataExport"));
 const AuditLogsPage = lazy(() => import("./pages/AuditLogsPage"));
 const AssignmentEditorPage = lazy(() => import("./pages/AssignmentEditorPage"));
 const AssignmentModeFullPage = lazy(() => import("./pages/AssignmentModeFullPage"));
+const VerifySubmissionPage = lazy(() => import("./pages/VerifySubmissionPage"));
 
 const queryClient = new QueryClient();
 
@@ -80,6 +81,7 @@ const App = () => (
                 <Route path="/admin/settings" element={<SettingsPage />} />
                 <Route path="/admin/data-export" element={<DataExport />} />
                 <Route path="/admin/logs" element={<AuditLogsPage />} />
+                <Route path="/admin/verify-submission" element={<VerifySubmissionPage />} />
                 <Route path="/admin/legacy" element={<AdminDashboard />} />
                 <Route path="/admin/policy-transparency" element={<PolicyTransparency />} />
                 <Route path="/student" element={<StudentDashboard />} />
@@ -120,8 +122,9 @@ const App = () => (
                   <Route path="/admin/enforcement" element={<EnforcementPage />} />
                   <Route path="/admin/settings" element={<SettingsPage />} />
                   <Route path="/admin/data-export" element={<DataExport />} />
-                  <Route path="/admin/logs" element={<AuditLogsPage />} />
-                  <Route path="/admin/legacy" element={<AdminDashboard />} />
+                   <Route path="/admin/logs" element={<AuditLogsPage />} />
+                   <Route path="/admin/verify-submission" element={<VerifySubmissionPage />} />
+                   <Route path="/admin/legacy" element={<AdminDashboard />} />
                   <Route path="/admin/policy-transparency" element={<PolicyTransparency />} />
                   <Route path="/student" element={<StudentDashboard />} />
                   <Route path="/student/assignment-editor" element={<AssignmentEditorPage />} />

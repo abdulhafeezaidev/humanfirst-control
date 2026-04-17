@@ -24,6 +24,11 @@ export function useAssignmentRiskMonitor(assignmentId?: string) {
   } | null>(null);
   const [showIntegrityReminder, setShowIntegrityReminder] = useState(false);
   const [integrityTrigger, setIntegrityTrigger] = useState("");
+  const [lastTypingAnomalyMeta, setLastTypingAnomalyMeta] = useState<{
+    charactersAdded: number;
+    timeSeconds: number;
+    occurredAt: string;
+  } | null>(null);
 
   const contentSnapshots = useRef<Array<{ at: number; length: number }>>([]);
   const pasteIndexRef = useRef(0);
@@ -98,6 +103,11 @@ export function useAssignmentRiskMonitor(assignmentId?: string) {
       timestamp: now,
       severity_level: "MEDIUM",
     });
+    setLastTypingAnomalyMeta({
+      charactersAdded,
+      timeSeconds,
+      occurredAt: new Date(now).toISOString(),
+    });
     triggerIntegrityReminder("typing_anomaly");
     contentSnapshots.current = [];
   }, [pushEvent, triggerIntegrityReminder]);
@@ -147,6 +157,7 @@ export function useAssignmentRiskMonitor(assignmentId?: string) {
     lastPasteMeta,
     showIntegrityReminder,
     integrityTrigger,
+    lastTypingAnomalyMeta,
     handlePaste,
     handleContentLength,
     handleExternalRiskEvent,

@@ -371,6 +371,7 @@ function getBrowserViewState() {
   if (!assignmentBrowserView || assignmentBrowserView.webContents.isDestroyed()) {
     return {
       url: '',
+      title: '',
       canGoBack: false,
       canGoForward: false,
       isLoading: false,
@@ -380,6 +381,7 @@ function getBrowserViewState() {
   const wc = assignmentBrowserView.webContents;
   return {
     url: wc.getURL() || '',
+    title: wc.getTitle() || '',
     canGoBack: wc.canGoBack(),
     canGoForward: wc.canGoForward(),
     isLoading: wc.isLoading(),

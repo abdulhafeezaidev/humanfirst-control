@@ -43,6 +43,7 @@ declare global {
 				ok: boolean;
 				state?: {
 					url: string;
+					title?: string;
 					canGoBack: boolean;
 					canGoForward: boolean;
 					isLoading: boolean;
@@ -129,6 +130,7 @@ declare global {
 			clearSubmissionLock?: () => Promise<{ ok: boolean }>;
 			onBrowserViewState?: (callback: (payload: {
 				url: string;
+				title?: string;
 				canGoBack: boolean;
 				canGoForward: boolean;
 				isLoading: boolean;

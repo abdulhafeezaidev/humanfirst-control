@@ -413,7 +413,7 @@ export function AssignmentRichTextEditor({
           <Button
             variant="default"
             size="sm"
-            disabled={isExporting || !lockedFolderPath}
+            disabled={isExporting || !lockedFolderPath || !sessionId || !studentId || !policyId || !orgId}
             onClick={() => setShowExportDialog(true)}
           >
             {isExporting ? "Exporting..." : "Export & Submit"}

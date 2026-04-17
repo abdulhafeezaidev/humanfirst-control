@@ -70,6 +70,7 @@ export function AssignmentModeWorkspace({
   const [submissionMode, setSubmissionMode] = useState(false);
   const [submissionUrl, setSubmissionUrl] = useState<string>();
   const [successOverlay, setSuccessOverlay] = useState(false);
+  const [contextLoading, setContextLoading] = useState(false);
   const [domainTracker] = useState(() => new DomainTracker());
 
   const [studentContext, setStudentContext] = useState<{
@@ -88,80 +89,101 @@ export function AssignmentModeWorkspace({
   }, []);
 
   const loadContext = useCallback(async () => {
-    if (!assignmentId || studentContext) return;
-    const { data: auth } = await supabase.auth.getUser();
-    if (!auth.user) return;
-    const studentId = auth.user.id;
+    if (!assignmentId || studentContext || contextLoading) return studentContext;
+    setContextLoading(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const sessionUserId = sessionData.session?.user?.id;
+      const { data: auth } = sessionUserId
+        ? { data: { user: { id: sessionUserId } } }
+        : await supabase.auth.getUser();
+      if (!auth.user) return null;
+      const studentId = auth.user.id;
 
-    const { data: profileById } = await (supabase
-      .from('profiles' as any)
-      .select('organization_id')
-      .eq('id', studentId)
-      .maybeSingle() as any);
-    const { data: profileByUserId } = await (supabase
-      .from('profiles' as any)
-      .select('organization_id')
-      .eq('user_id', studentId)
-      .maybeSingle() as any);
-    const organizationId = profileById?.organization_id || profileByUserId?.organization_id || null;
+      const { data: profileById } = await (supabase
+        .from('profiles' as any)
+        .select('organization_id')
+        .eq('id', studentId)
+        .maybeSingle() as any);
+      const { data: profileByUserId } = await (supabase
+        .from('profiles' as any)
+        .select('organization_id')
+        .eq('user_id', studentId)
+        .maybeSingle() as any);
+      const organizationId = profileById?.organization_id || profileByUserId?.organization_id || null;
 
-    const { data: policy } = await (supabase
-      .from('exam_policies' as any)
-      .select('id,submission_url')
-      .eq('id', assignmentId)
-      .maybeSingle() as any);
+      const { data: policy } = await (supabase
+        .from('exam_policies' as any)
+        .select('id,submission_url')
+        .eq('id', assignmentId)
+        .maybeSingle() as any);
 
-    const { data: session } = await (supabase
-      .from('assignment_sessions' as any)
-      .select('id')
-      .eq('policy_id', assignmentId)
-      .eq('student_id', studentId)
-      .eq('status', 'active')
-      .order('started_at', { ascending: false })
-      .limit(1)
-      .maybeSingle() as any);
-
-    const policyId = toUuid(policy?.id);
-    const orgId = toUuid(organizationId);
-    if (!policyId || !orgId) return;
-
-    let sessionId = toUuid(session?.id);
-    if (!sessionId) {
-      const { data: createdSession, error: createError } = await (supabase
+      const { data: session } = await (supabase
         .from('assignment_sessions' as any)
-        .insert({
-          student_id: studentId,
-          policy_id: policyId,
-          assignment_id: null,
-          status: 'active',
-          environment: 'desktop',
-          submission_url: policy.submission_url || null,
-        })
         .select('id')
-        .single() as any);
+        .eq('policy_id', assignmentId)
+        .eq('student_id', studentId)
+        .eq('status', 'active')
+        .order('started_at', { ascending: false })
+        .limit(1)
+        .maybeSingle() as any);
 
-      if (createError) {
-        toast({
-          title: 'Unable to start assignment session',
-          description: createError.message || 'Could not create a session record for this policy.',
-          variant: 'destructive',
-        });
-        return;
+      const policyId = toUuid(policy?.id);
+      const orgId = toUuid(organizationId);
+      if (!policyId || !orgId) return null;
+
+      let sessionId = toUuid(session?.id);
+      if (!sessionId) {
+        const { data: createdSession, error: createError } = await (supabase
+          .from('assignment_sessions' as any)
+          .insert({
+            student_id: studentId,
+            policy_id: policyId,
+            assignment_id: null,
+            status: 'active',
+            environment: 'desktop',
+            submission_url: policy.submission_url || null,
+          })
+          .select('id')
+          .single() as any);
+
+        if (createError) {
+          toast({
+            title: 'Unable to start assignment session',
+            description: createError.message || 'Could not create a session record for this policy.',
+            variant: 'destructive',
+          });
+          return null;
+        }
+        sessionId = toUuid(createdSession?.id) || crypto.randomUUID?.() || `session-${Date.now()}`;
       }
-      sessionId = toUuid(createdSession?.id) || crypto.randomUUID?.() || `session-${Date.now()}`;
-    }
 
-    setStudentContext({
-      studentId,
-      orgId,
-      policyId,
-      sessionId,
-      submissionUrl: policy.submission_url || '',
-    });
-    if (policy.submission_url) {
-      setSubmissionUrl(policy.submission_url);
+      const context = {
+        studentId,
+        orgId,
+        policyId,
+        sessionId,
+        submissionUrl: policy.submission_url || '',
+      };
+
+      setStudentContext(context);
+      if (policy.submission_url) {
+        setSubmissionUrl(policy.submission_url);
+      }
+      return context;
+    } finally {
+      setContextLoading(false);
     }
-  }, [assignmentId, studentContext, toUuid, toast]);
+  }, [assignmentId, contextLoading, studentContext, toUuid, toast]);
+
+  React.useEffect(() => {
+    const { data } = supabase.auth.onAuthStateChange(() => {
+      void loadContext();
+    });
+    return () => {
+      data.subscription.unsubscribe();
+    };
+  }, [loadContext]);
 
   /**
    * Handle domain navigation events from the browser

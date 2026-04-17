@@ -158,13 +158,30 @@ contextBridge.exposeInMainWorld('humanfirstDesktop', {
     };
   },
 
-  exportAssignmentPdf: async (payload) => {
-    const res = await ipcRenderer.invoke('hf/assignment:exportPdf', payload ?? {});
+  exportAssignmentDocument: async (payload) => {
+    const res = await ipcRenderer.invoke('hf/assignment:exportDocument', payload ?? {});
     return {
       ok: !!res?.ok,
       filePath: String(res?.filePath ?? ''),
       fileName: String(res?.fileName ?? ''),
       fileSizeKb: Number(res?.fileSizeKb ?? 0),
+      format: String(res?.format ?? ''),
+      metadata: res?.metadata ?? null,
+      error: String(res?.error ?? ''),
+    };
+  },
+
+  exportAssignmentPdf: async (payload) => {
+    const res = await ipcRenderer.invoke('hf/assignment:exportDocument', {
+      ...(payload ?? {}),
+      format: 'pdf',
+    });
+    return {
+      ok: !!res?.ok,
+      filePath: String(res?.filePath ?? ''),
+      fileName: String(res?.fileName ?? ''),
+      fileSizeKb: Number(res?.fileSizeKb ?? 0),
+      format: String(res?.format ?? ''),
       metadata: res?.metadata ?? null,
       error: String(res?.error ?? ''),
     };

@@ -4,6 +4,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const { PDFDocument, StandardFonts, rgb, PDFName } = require('pdf-lib');
 const { htmlToText } = require('html-to-text');
+const { Document, Packer, Paragraph, TextRun } = require('docx');
 
 const isDev = !app.isPackaged;
 
@@ -365,6 +366,49 @@ async function generatePdfWithMetadata({ htmlContent, studentName, assignmentNam
   pdfDoc.catalog.set(PDFName.of('Metadata'), metadataRef);
 
   return pdfDoc.save();
+}
+
+function htmlToDocxParagraphs(htmlContent) {
+  const text = htmlToText(String(htmlContent || ''), {
+    wordwrap: false,
+    selectors: [{ selector: 'img', format: 'skip' }],
+  });
+  const paragraphs = text
+    .split(/\r?\n\s*\r?\n/)
+    .map((chunk) => chunk.trim())
+    .filter(Boolean);
+  const sourceParagraphs = paragraphs.length ? paragraphs : [text.trim()];
+  return sourceParagraphs.flatMap((chunk) => {
+    const lines = chunk.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+    if (lines.length === 0) {
+      return [new Paragraph({ children: [new TextRun(' ')] })];
+    }
+    return lines.map((line) => new Paragraph({
+      children: [new TextRun(line)],
+      spacing: { after: 180 },
+    }));
+  });
+}
+
+async function generateDocxWithMetadata({ htmlContent, studentName, assignmentName, metadata }) {
+  const doc = new Document({
+    creator: 'HumanFirst Control',
+    title: `${studentName} — Assignment`,
+    subject: assignmentName || 'Assignment',
+    description: 'HumanFirst Control verified assignment export',
+    keywords: [
+      String(metadata.export_id || ''),
+      String(metadata.session_id || ''),
+      String(metadata.content_hash || ''),
+      String(metadata.signature || ''),
+    ].filter(Boolean),
+    sections: [{
+      properties: {},
+      children: htmlToDocxParagraphs(htmlContent),
+    }],
+  });
+
+  return Packer.toBuffer(doc);
 }
 
 function getBrowserViewState() {
@@ -1295,13 +1339,14 @@ app.whenReady().then(async () => {
     return { ok: true };
   });
 
-  ipcMain.handle('hf/assignment:exportPdf', async (_event, payload) => {
+  ipcMain.handle('hf/assignment:exportDocument', async (_event, payload) => {
     try {
       const folder = ensureLockedSessionFolder();
 
       const htmlContent = String(payload?.htmlContent || '');
       const studentName = String(payload?.studentName || 'Student');
       const assignmentName = String(payload?.assignmentName || 'Assignment');
+      const format = String(payload?.format || 'pdf').toLowerCase() === 'docx' ? 'docx' : 'pdf';
       const sessionId = String(payload?.sessionId || '');
       const studentId = String(payload?.studentId || '');
       const policyId = String(payload?.policyId || '');
@@ -1354,6 +1399,29 @@ app.whenReady().then(async () => {
         return { ok: false, error: 'sign-export returned incomplete payload' };
       }
 
+      const fileBase = `${sanitizeFilePart(studentName)}_${sanitizeFilePart(assignmentName)}_${new Date().toISOString().slice(0, 10)}`;
+      const fileName = `${fileBase}.${format}`;
+
+      if (format === 'docx') {
+        const docxBytes = await generateDocxWithMetadata({
+          htmlContent,
+          studentName,
+          assignmentName,
+          metadata,
+        });
+        const filePath = path.join(folder, fileName);
+        fs.writeFileSync(filePath, Buffer.from(docxBytes));
+        const stats = fs.statSync(filePath);
+        return {
+          ok: true,
+          filePath,
+          fileName,
+          fileSizeKb: Math.max(1, Math.round(stats.size / 1024)),
+          format,
+          metadata,
+        };
+      }
+
       const pdfBytes = await generatePdfWithMetadata({
         htmlContent,
         studentName,
@@ -1361,8 +1429,6 @@ app.whenReady().then(async () => {
         metadata,
       });
 
-      const datePart = new Date().toISOString().slice(0, 10);
-      const fileName = `${sanitizeFilePart(studentName)}_${sanitizeFilePart(assignmentName)}_${datePart}.pdf`;
       const filePath = path.join(folder, fileName);
       fs.writeFileSync(filePath, Buffer.from(pdfBytes));
       const stats = fs.statSync(filePath);
@@ -1372,6 +1438,7 @@ app.whenReady().then(async () => {
         filePath,
         fileName,
         fileSizeKb: Math.max(1, Math.round(stats.size / 1024)),
+        format,
         metadata,
       };
     } catch (e) {

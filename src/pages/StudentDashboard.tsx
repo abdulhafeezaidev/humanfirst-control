@@ -203,6 +203,21 @@ const StudentDashboard = () => {
     }
   }, [adminPin, toast]);
 
+  const handleOpenAssignmentMode = useCallback(() => {
+    const assignmentTarget = activePolicy?.id;
+    if (assignmentTarget) {
+      navigate(`/assignment/${assignmentTarget}/mode`);
+      return;
+    }
+
+    toast({
+      title: 'No active assignment',
+      description: 'Create or activate an assignment in Admin Settings first, then return here.',
+      variant: 'destructive',
+    });
+    navigate('/admin/policies');
+  }, [activePolicy?.id, navigate, toast]);
+
   // If user attempts to close the window during exam mode, prompt for admin PIN.
   useEffect(() => {
     const api = window.humanfirstDesktop;
@@ -458,6 +473,19 @@ const StudentDashboard = () => {
     activePolicy.enforcement_level === 'strict' &&
     enforcementConfig?.status === 'active';
 
+  useEffect(() => {
+    if (!user || role !== 'student') return;
+    const launchPolicy = policies.find((p) =>
+      p.is_active &&
+      p.policy_type === 'exam' &&
+      p.enforcement_level === 'strict' &&
+      new Date(p.start_time) <= currentTime &&
+      new Date(p.end_time) >= currentTime
+    );
+    if (!launchPolicy) return;
+    navigate(`/assignment/${launchPolicy.id}/mode`);
+  }, [currentTime, navigate, policies, role, user]);
+
   // Prepare active policy with organization name for display
   const activePolicyForDisplay = activePolicy ? {
     ...activePolicy,
@@ -587,7 +615,7 @@ const StudentDashboard = () => {
             <p className="text-muted-foreground">See what restrictions apply and why</p>
           </div>
           <Button 
-            onClick={() => navigate('/assignment/8c621547-2b97-4dad-808d-28dda24f84f4/mode')}
+            onClick={handleOpenAssignmentMode}
             className="whitespace-nowrap ml-4"
             variant="default"
           >

@@ -12,7 +12,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { AssignmentModeWorkspace } from '@/components/assignment/AssignmentModeWorkspace';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, FolderLock, FolderCheck } from 'lucide-react';
+import { Loader2, FolderLock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -25,18 +25,19 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 
-interface AssignmentRecord {
+interface PolicyRecord {
   id: string;
   title?: string | null;
   description?: string | null;
   instruction?: string | null;
+  submission_url?: string | null;
 }
 
 export default function AssignmentModeFullPage() {
   const { assignmentId } = useParams<{ assignmentId: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [assignment, setAssignment] = useState<AssignmentRecord | null>(null);
+  const [policy, setPolicy] = useState<PolicyRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [quitting, setQuitting] = useState(false);
@@ -54,7 +55,7 @@ export default function AssignmentModeFullPage() {
       const { data: existing } = await (supabase
         .from('assignment_sessions' as any)
         .select('id')
-        .eq('assignment_id', assignmentId)
+        .eq('policy_id', assignmentId)
         .eq('student_id', userIdRef.current)
         .eq('status', 'active')
         .order('started_at', { ascending: false })
@@ -69,7 +70,7 @@ export default function AssignmentModeFullPage() {
       const { data: policy } = await (supabase
         .from('exam_policies' as any)
         .select('id')
-        .eq('assignment_id', assignmentId)
+        .eq('id', assignmentId)
         .eq('is_active', true)
         .order('start_time', { ascending: false })
         .limit(1)
@@ -80,7 +81,7 @@ export default function AssignmentModeFullPage() {
       const { data: created } = await (supabase
         .from('assignment_sessions' as any)
         .insert({
-          assignment_id: assignmentId,
+          assignment_id: null,
           student_id: userIdRef.current,
           policy_id: policy.id,
           status: 'active',
@@ -114,7 +115,7 @@ export default function AssignmentModeFullPage() {
         .from('assignment_risk_events' as any)
         .insert({
           user_id: userIdRef.current,
-          assignment_id: assignmentId,
+          assignment_id: null,
           session_id: sessionId,
           event_type: 'student_quit_assignment',
           severity_level: 'MEDIUM',
@@ -191,14 +192,14 @@ export default function AssignmentModeFullPage() {
         }
 
         const { data, error: fetchError } = await (supabase
-          .from('assignments' as any)
+          .from('exam_policies' as any)
           .select(
             `
             id,
             title,
             description,
             instruction,
-            content,
+            submission_url,
             status,
             created_by,
             created_at,
@@ -209,17 +210,25 @@ export default function AssignmentModeFullPage() {
           .single() as any);
 
         if (fetchError) {
-          setError(`Failed to load assignment: ${fetchError.message}`);
-          setAssignment(null);
-        } else if (data) {
-          setAssignment(data as AssignmentRecord);
-          setError(null);
-          await ensureSession();
-        } else {
-          setError('Assignment not found');
+          console.warn('[AssignmentMode] Assignment lookup failed, using fallback record', fetchError);
         }
-      } catch (err: any) {
-        setError(err?.message || 'An unexpected error occurred');
+
+        if (data) {
+          setPolicy(data as PolicyRecord);
+        } else {
+          setPolicy({
+            id: assignmentId,
+            title: 'Assignment',
+            description: null,
+            instruction: null,
+          });
+        }
+
+        setError(null);
+        await ensureSession();
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'An unexpected error occurred';
+        setError(message);
       } finally {
         setLoading(false);
       }
@@ -276,7 +285,7 @@ export default function AssignmentModeFullPage() {
 
   useEffect(() => {
     const api = window.humanfirstDesktop;
-    if (!api?.isDesktop || !assignment) return;
+    if (!api?.isDesktop || !policy) return;
 
     api.setAssignmentMode(true).catch((err) => {
       console.warn('[Desktop] Failed to enable assignment mode', err);
@@ -287,7 +296,7 @@ export default function AssignmentModeFullPage() {
         console.warn('[Desktop] Failed to disable assignment mode', err);
       });
     };
-  }, [assignment]);
+  }, [policy]);
 
   useEffect(() => {
     return () => {
@@ -295,29 +304,22 @@ export default function AssignmentModeFullPage() {
     };
   }, [logQuitAndNotifyAdmin]);
 
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey && event.shiftKey && event.key.toLowerCase() === 'q')) return;
+      event.preventDefault();
+      void handleQuitAssignment();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [handleQuitAssignment]);
+
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
         <div className="space-y-3 text-center">
           <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
           <p className="text-sm text-muted-foreground">Loading assignment...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (error || !assignment) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-background">
-        <div className="max-w-md space-y-4 rounded-lg border bg-card p-6">
-          <h2 className="text-lg font-semibold text-foreground">Error</h2>
-          <p className="text-sm text-destructive">{error || 'Assignment not found'}</p>
-          <button
-            onClick={() => navigate('/student')}
-            className="inline-flex h-9 items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-          >
-            Back to Dashboard
-          </button>
         </div>
       </div>
     );
@@ -346,25 +348,16 @@ export default function AssignmentModeFullPage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {sessionFolderPath && (
-        <div className="fixed right-4 top-4 z-50 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs text-emerald-200 shadow">
-          <span className="inline-flex items-center gap-1">
-            <FolderCheck className="h-3.5 w-3.5" />
-            📁 {sessionFolderPath.split('\\').pop()} — locked for this session
-          </span>
-        </div>
-      )}
-
       {!folderDialogOpen && (
         <AssignmentModeWorkspace
-          assignmentId={assignment.id}
-          assignmentTitle={assignment.title || 'Assignment'}
+          assignmentId={policy?.id || assignmentId}
+          assignmentTitle={policy?.title || 'Assignment'}
           onQuitAssignment={handleQuitAssignment}
           quitting={quitting}
           lockedFolderPath={sessionFolderPath}
           instruction={
-            assignment.instruction ||
-            assignment.description ||
+            policy?.instruction ||
+            policy?.description ||
             'Complete your assignment using the browser on the right for research.'
           }
         />

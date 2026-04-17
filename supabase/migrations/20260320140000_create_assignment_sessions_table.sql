@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS public.assignment_sessions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   student_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   policy_id uuid NOT NULL REFERENCES public.exam_policies(id) ON DELETE CASCADE,
-  assignment_id uuid NOT NULL REFERENCES public.assignments(id) ON DELETE CASCADE,
+  assignment_id uuid REFERENCES public.assignments(id) ON DELETE CASCADE,
   started_at timestamptz NOT NULL DEFAULT now(),
   submitted_at timestamptz,
   status text NOT NULL DEFAULT 'active'

@@ -98,6 +98,27 @@ declare global {
 				savedAt?: string;
 				error?: string;
 			}>;
+			exportAssignmentDocument?: (payload: {
+				htmlContent: string;
+				studentName: string;
+				assignmentName: string;
+				format: 'pdf' | 'docx';
+				sessionId: string;
+				studentId: string;
+				policyId: string;
+				orgId: string;
+				accessToken: string;
+				supabaseUrl: string;
+				supabaseAnonKey: string;
+			}) => Promise<{
+				ok: boolean;
+				filePath?: string;
+				fileName?: string;
+				fileSizeKb?: number;
+				format?: string;
+				metadata?: any;
+				error?: string;
+			}>;
 			exportAssignmentPdf?: (payload: {
 				htmlContent: string;
 				studentName: string;
@@ -114,6 +135,7 @@ declare global {
 				filePath?: string;
 				fileName?: string;
 				fileSizeKb?: number;
+				format?: string;
 				metadata?: any;
 				error?: string;
 			}>;

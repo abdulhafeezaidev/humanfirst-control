@@ -5,6 +5,7 @@ import { useAgentRiskEvents } from "@/hooks/useAgentRiskEvents";
 import { IntegrityReminderModal } from "@/components/assignment/IntegrityReminderModal";
 import { supabase } from "@/integrations/supabase/client";
 import { violationLogger } from "@/lib/violationLogger";
+import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Toggle } from "@/components/ui/toggle";
@@ -29,6 +30,14 @@ import {
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface AssignmentRichTextEditorProps {
   value?: string;
@@ -49,6 +58,7 @@ interface AssignmentRichTextEditorProps {
     filePath: string;
     fileSizeKb: number;
     exportId: string;
+    format: 'pdf' | 'docx';
   }) => void;
 }
 
@@ -91,11 +101,13 @@ export function AssignmentRichTextEditor({
   onExportedForSubmission,
 }: AssignmentRichTextEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
   const [lastAutoSavedAt, setLastAutoSavedAt] = useState<number | null>(null);
   const [rows, setRows] = useState("2");
   const [cols, setCols] = useState("2");
   const [showTableDialog, setShowTableDialog] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+  const [showExportDialog, setShowExportDialog] = useState(false);
 
   const {
     pendingPasteAcknowledgement,
@@ -216,18 +228,34 @@ export function AssignmentRichTextEditor({
     setShowTableDialog(false);
   }, [cols, execute, rows]);
 
-  const handleExportAndSubmit = useCallback(async () => {
+  const handleExportAndSubmit = useCallback(async (format: 'pdf' | 'docx') => {
     const api = window.humanfirstDesktop;
-    if (!api?.isDesktop || !api.exportAssignmentPdf || !editorRef.current) return;
-    if (!sessionId || !studentId || !policyId || !orgId) return;
+    const exportApi = api?.exportAssignmentDocument || api?.exportAssignmentPdf;
+    if (!api?.isDesktop || !exportApi || !editorRef.current) {
+      toast({
+        title: "Export unavailable",
+        description: "The desktop export bridge is not ready.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!sessionId || !studentId || !policyId || !orgId) {
+      toast({
+        title: "Export unavailable",
+        description: "Assignment context is still loading.",
+        variant: "destructive",
+      });
+      return;
+    }
     setIsExporting(true);
     try {
       const { data: auth } = await supabase.auth.getSession();
       const accessToken = auth.session?.access_token || "";
-      const result = await api.exportAssignmentPdf({
+      const result = await exportApi({
         htmlContent: editorRef.current.innerHTML,
         studentName: studentName || "Student",
         assignmentName: assignmentTitle || "Assignment",
+        format,
         sessionId,
         studentId,
         policyId,
@@ -236,16 +264,14 @@ export function AssignmentRichTextEditor({
         supabaseUrl: import.meta.env.VITE_SUPABASE_URL as string,
         supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY as string,
       });
-      if (!result?.ok || !result.metadata?.export_id) return;
-
-      await (supabase.from("assignment_exports" as any)
-        .update({
-          file_name: result.fileName,
-          file_size_kb: result.fileSizeKb,
-          content_hash: result.metadata.content_hash,
-          signature: result.metadata.signature,
-        })
-        .eq("export_id", result.metadata.export_id) as any);
+      if (!result?.ok || !result.metadata?.export_id) {
+        toast({
+          title: "Export failed",
+          description: result?.error || "The assignment file could not be created.",
+          variant: "destructive",
+        });
+        return;
+      }
 
       if (submissionUrl && api.setSubmissionLock) {
         await api.setSubmissionLock(submissionUrl);
@@ -256,11 +282,13 @@ export function AssignmentRichTextEditor({
         filePath: result.filePath || "",
         fileSizeKb: Number(result.fileSizeKb || 0),
         exportId: String(result.metadata.export_id || ""),
+        format,
       });
+      setShowExportDialog(false);
     } finally {
       setIsExporting(false);
     }
-  }, [assignmentTitle, onExportedForSubmission, orgId, policyId, sessionId, studentId, studentName, submissionUrl]);
+  }, [assignmentTitle, onExportedForSubmission, orgId, policyId, sessionId, studentId, studentName, submissionUrl, toast]);
 
   return (
     <>
@@ -386,12 +414,40 @@ export function AssignmentRichTextEditor({
             variant="default"
             size="sm"
             disabled={isExporting || !lockedFolderPath}
-            onClick={handleExportAndSubmit}
+            onClick={() => setShowExportDialog(true)}
           >
             {isExporting ? "Exporting..." : "Export & Submit"}
           </Button>
         </div>
       </div>
+
+      <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Choose export format</DialogTitle>
+            <DialogDescription>
+              Export your assignment as a PDF or DOCX file into the locked folder.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void handleExportAndSubmit("docx")}
+              disabled={isExporting}
+            >
+              DOCX
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void handleExportAndSubmit("pdf")}
+              disabled={isExporting}
+            >
+              PDF
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <IntegrityReminderModal
         open={showIntegrityReminder}

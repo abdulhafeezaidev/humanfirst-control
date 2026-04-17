@@ -165,9 +165,17 @@ export function ControlledWebBrowser({
    */
   const checkForSubmissionConfirmation = useCallback(
     (url: string, pageTitle?: string) => {
-      const lowerUrl = url.toLowerCase();
-      const urlPatterns = ['submit', 'confirm', 'success', 'thank', 'complete', 'received'];
+      if (!submissionMode) return;
+
+      const normalizedSubmissionUrl = (submissionUrl || "").toLowerCase().replace(/\/+$/, "");
+      const lowerUrl = url.toLowerCase().replace(/\/+$/, "");
+      const urlPatterns = ['confirm', 'success', 'thank', 'complete', 'received', 'submitted'];
       const titlePatterns = ['submitted', 'received', 'success', 'complete', 'thank'];
+
+      // Ignore the initial LMS landing page to prevent immediate false positives.
+      if (normalizedSubmissionUrl && lowerUrl === normalizedSubmissionUrl) {
+        return;
+      }
 
       // Check URL for confirmation patterns
       if (urlPatterns.some(pattern => lowerUrl.includes(pattern))) {
@@ -180,7 +188,7 @@ export function ControlledWebBrowser({
         onSubmissionDetected?.();
       }
     },
-    [onSubmissionDetected],
+    [onSubmissionDetected, submissionMode, submissionUrl],
   );
 
   const normalizeUrl = useCallback((url: string): string => {

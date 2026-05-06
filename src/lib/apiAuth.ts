@@ -37,18 +37,16 @@ export async function getCurrentRole(): Promise<AppRole | null> {
     return null;
   }
 
-  const { data, error } = await supabase
-    .from('user_roles')
-    .select('role')
-    .eq('user_id', session.user.id)
-    .maybeSingle();
+  const { data, error } = await supabase.rpc('get_user_role', {
+    _user_id: session.user.id,
+  });
 
   if (error || !data) {
     console.error('Failed to fetch user role:', error);
     return null;
   }
 
-  return data.role as AppRole;
+  return data as AppRole;
 }
 
 /**

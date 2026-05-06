@@ -39,14 +39,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const canMutate = canPerformMutations(role);
 
   const fetchUserRole = async (userId: string) => {
-    const { data, error } = await supabase
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', userId)
-      .maybeSingle();
-    
-    if (data && !error) {
-      setRole(data.role as AppRole);
+    const { data, error } = await supabase.rpc('get_user_role', {
+      _user_id: userId,
+    });
+
+    if (!error && data) {
+      setRole(data as AppRole);
     }
   };
 

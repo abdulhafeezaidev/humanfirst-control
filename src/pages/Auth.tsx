@@ -26,6 +26,9 @@ const emailSchema = z.object({
 /** Turn opaque network errors into actionable messages. */
 function friendlyAuthError(err: Error): string {
   const msg = err.message?.toLowerCase() ?? '';
+  if (msg.includes('no such host') || msg.includes('name or service not known') || msg.includes('cannot resolve') || msg.includes('dns')) {
+    return 'The app cannot resolve the configured Supabase host. Check VITE_SUPABASE_URL in .env and confirm your DNS/network can reach that project.';
+  }
   if (msg.includes('failed to fetch') || msg.includes('networkerror') || msg.includes('load failed')) {
     return 'Unable to reach the server. Please check your internet connection and try again. If the problem persists, the database may be temporarily unavailable.';
   }

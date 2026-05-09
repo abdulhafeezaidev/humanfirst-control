@@ -69,6 +69,7 @@ const StudentDashboard = () => {
   const { user, role, ethicsAccepted, signOut, loading, refreshEthicsStatus } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const assignmentModeDemoEnabled = import.meta.env.VITE_ASSIGNMENT_MODE_DEMO === 'true';
   
   // Data states
   const [policies, setPolicies] = useState<ExamPolicy[]>([]);
@@ -210,13 +211,22 @@ const StudentDashboard = () => {
       return;
     }
 
+    if (assignmentModeDemoEnabled && window.humanfirstDesktop?.isDesktop) {
+      toast({
+        title: 'Demo mode enabled',
+        description: 'Launching Assignment Mode without an active policy for demo purposes.',
+      });
+      navigate('/assignment/demo/mode');
+      return;
+    }
+
     toast({
       title: 'No active assignment',
       description: 'Create or activate an assignment in Admin Settings first, then return here.',
       variant: 'destructive',
     });
     navigate('/admin/policies');
-  }, [activePolicy?.id, navigate, toast]);
+  }, [activePolicy?.id, assignmentModeDemoEnabled, navigate, toast]);
 
   // If user attempts to close the window during exam mode, prompt for admin PIN.
   useEffect(() => {

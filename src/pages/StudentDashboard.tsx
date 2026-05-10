@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { LogOut, Heart, Info, AlertTriangle } from 'lucide-react';
+import { LogOut, Heart, Info, AlertTriangle, Monitor, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -618,6 +618,24 @@ const StudentDashboard = () => {
       </header>
 
       <main className="container mx-auto px-4 sm:px-6 py-6 sm:py-8 max-w-4xl">
+        {/* Desktop Helper Link */}
+        {window.humanfirstDesktop?.isDesktop && (
+          <section className="mb-6">
+            <Link to="/desktop-diagnostics">
+              <div className="flex items-center gap-3 p-4 bg-primary/5 border border-primary/20 rounded-xl hover:bg-primary/10 transition-colors group">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+                  <Monitor className="w-5 h-5" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-foreground tracking-tight">Desktop Helper & Diagnostics</p>
+                  <p className="text-xs text-muted-foreground">Check connection, view logs, or run a system health check.</p>
+                </div>
+                <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:translate-x-1 transition-transform" />
+              </div>
+            </Link>
+          </section>
+        )}
+
         {/* Page Header */}
         <div className="mb-6 flex items-start justify-between">
           <div>

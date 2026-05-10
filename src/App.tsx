@@ -39,6 +39,7 @@ const AuditLogsPage = lazy(() => import("./pages/AuditLogsPage"));
 const AssignmentEditorPage = lazy(() => import("./pages/AssignmentEditorPage"));
 const AssignmentModeFullPage = lazy(() => import("./pages/AssignmentModeFullPage"));
 const VerifySubmissionPage = lazy(() => import("./pages/VerifySubmissionPage"));
+const DesktopDiagnostics = lazy(() => import("./pages/DesktopDiagnostics"));
 
 const queryClient = new QueryClient();
 
@@ -86,6 +87,7 @@ const App = () => (
                 <Route path="/admin/policy-transparency" element={<PolicyTransparency />} />
                 <Route path="/student" element={<StudentDashboard />} />
                 <Route path="/student/assignment-editor" element={<AssignmentEditorPage />} />
+                <Route path="/desktop-diagnostics" element={<DesktopDiagnostics />} />
                 <Route path="/assignment/:assignmentId/mode" element={<AssignmentModeFullPage />} />
                 <Route path="/policy/share/:token" element={<PublicPolicyShare />} />
                 <Route path="/trust" element={<TrustAndEthics />} />
@@ -128,6 +130,7 @@ const App = () => (
                   <Route path="/admin/policy-transparency" element={<PolicyTransparency />} />
                   <Route path="/student" element={<StudentDashboard />} />
                   <Route path="/student/assignment-editor" element={<AssignmentEditorPage />} />
+                  <Route path="/desktop-diagnostics" element={<DesktopDiagnostics />} />
                   <Route path="/assignment/:assignmentId/mode" element={<AssignmentModeFullPage />} />
                   <Route path="/policy/share/:token" element={<PublicPolicyShare />} />
                   <Route path="/trust" element={<TrustAndEthics />} />

@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { 
   Shield, CheckCircle, ArrowRight, ArrowLeft, Eye, Lock, Monitor, 
-  FlaskConical, AlertTriangle, Download, Smartphone, Laptop, Info
+  FlaskConical, AlertTriangle, Download, Smartphone, Laptop, Info,
+  Terminal, ShieldCheck, Activity
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -20,6 +21,7 @@ const StudentOnboarding: React.FC<StudentOnboardingProps> = ({ onComplete }) => 
   const steps = [
     { title: 'Welcome', description: 'Introduction' },
     { title: 'Privacy', description: 'Your rights' },
+    { title: 'Desktop App', description: 'Agent Setup' },
     { title: 'How it Works', description: 'Understanding policies' },
     { title: 'Pilot Mode', description: 'Testing period' },
     { title: 'Ready', description: 'Get started' },
@@ -113,6 +115,47 @@ const StudentOnboarding: React.FC<StudentOnboardingProps> = ({ onComplete }) => 
         return (
           <div className="space-y-6">
             <div className="text-center mb-6">
+              <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                <Terminal className="w-8 h-8 text-primary" />
+              </div>
+              <h2 className="text-2xl font-bold text-foreground">The Background Agent</h2>
+              <p className="text-muted-foreground">How the desktop app works on Windows</p>
+            </div>
+            <div className="max-w-lg mx-auto space-y-4">
+              <div className="p-4 bg-muted/50 rounded-xl flex gap-4">
+                <ShieldCheck className="w-6 h-6 text-primary shrink-0 mt-1" />
+                <div>
+                  <h4 className="font-semibold text-foreground">Silent Background Protection</h4>
+                  <p className="text-sm text-muted-foreground">
+                    A small background agent (ControlPlane.Agent) manages network policies locally. 
+                    It doesn't slow down your computer and stays idle when no exams are active.
+                  </p>
+                </div>
+              </div>
+              <div className="p-4 bg-muted/50 rounded-xl flex gap-4">
+                <Activity className="w-6 h-6 text-primary shrink-0 mt-1" />
+                <div>
+                  <h4 className="font-semibold text-foreground">Real-time Connection</h4>
+                  <p className="text-sm text-muted-foreground">
+                    The app connects to the agent using a secure "Named Pipe". 
+                    This ensures the website and the desktop app stay in sync instantly.
+                  </p>
+                </div>
+              </div>
+              <div className="p-4 bg-primary/5 border border-primary/20 rounded-xl">
+                <p className="text-xs text-center text-muted-foreground leading-relaxed">
+                  <strong>Pro Tip:</strong> If the app feels "stuck", you can use the <strong>Desktop Diagnostics</strong> 
+                  link on your dashboard to check the agent's health.
+                </p>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 3:
+        return (
+          <div className="space-y-6">
+            <div className="text-center mb-6">
               <h2 className="text-2xl font-bold text-foreground">How Policies Work</h2>
               <p className="text-muted-foreground">Understanding exam mode and restrictions</p>
             </div>
@@ -152,7 +195,7 @@ const StudentOnboarding: React.FC<StudentOnboardingProps> = ({ onComplete }) => 
           </div>
         );
 
-      case 3:
+      case 4:
         return (
           <div className="space-y-6">
             <div className="text-center mb-6">
@@ -200,7 +243,7 @@ const StudentOnboarding: React.FC<StudentOnboardingProps> = ({ onComplete }) => 
           </div>
         );
 
-      case 4:
+      case 5:
         return (
           <div className="text-center space-y-6">
             <div className="w-20 h-20 rounded-full bg-success/10 flex items-center justify-center mx-auto">
@@ -218,7 +261,7 @@ const StudentOnboarding: React.FC<StudentOnboardingProps> = ({ onComplete }) => 
               <ul className="text-sm text-muted-foreground space-y-1 text-left">
                 <li>• <strong>Green banner</strong> = No active restrictions</li>
                 <li>• <strong>Yellow banner</strong> = Exam mode active (or Pilot Mode)</li>
-                <li>• <strong>Transparency Screen</strong> = Always shows what's happening</li>
+                <li>• <strong>Desktop Helper</strong> = Use diagnostics if connection fails</li>
               </ul>
             </div>
           </div>

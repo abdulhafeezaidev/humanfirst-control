@@ -5,10 +5,31 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 
-export const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+/**
+ * CORS origin allowlist.
+ *
+ * The allowed origin is read from the ALLOWED_ORIGIN environment variable so
+ * it can be configured per-environment without code changes:
+ *   - Local dev:   ALLOWED_ORIGIN=http://localhost:5173
+ *   - Production:  ALLOWED_ORIGIN=https://your-app.vercel.app
+ *
+ * Falls back to localhost for local development safety.
+ *
+ * PRODUCTION: Set ALLOWED_ORIGIN in Supabase Dashboard →
+ * Edge Functions → [function] → Secrets.
+ */
+const ALLOWED_ORIGIN =
+  Deno.env.get('ALLOWED_ORIGIN') ?? 'http://localhost:5173';
+
+export function getCorsHeaders(): Record<string, string> {
+  return {
+    'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  };
 }
+
+/** @deprecated Use getCorsHeaders() instead to get environment-aware CORS headers. */
+export const corsHeaders = getCorsHeaders();
 
 export type AppRole = 'super_admin' | 'admin' | 'viewer' | 'student';
 
@@ -130,7 +151,7 @@ export function isViewer(role: AppRole): boolean {
 export function unauthorizedResponse(message: string = 'Unauthorized'): Response {
   return new Response(
     JSON.stringify({ error: message }),
-    { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    { status: 401, headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' } }
   );
 }
 
@@ -140,7 +161,7 @@ export function unauthorizedResponse(message: string = 'Unauthorized'): Response
 export function forbiddenResponse(message: string = 'Forbidden'): Response {
   return new Response(
     JSON.stringify({ error: message }),
-    { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    { status: 403, headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' } }
   );
 }
 
@@ -211,6 +232,6 @@ export function readOnlyResponse(): Response {
       error: 'Access denied: Your role (viewer) is read-only and cannot perform mutations',
       code: 'READ_ONLY_ROLE'
     }),
-    { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    { status: 403, headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' } }
   );
 }

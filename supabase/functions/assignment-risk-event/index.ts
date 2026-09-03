@@ -1,3 +1,4 @@
+/// <reference path="../esm.d.ts" />
 /**
  * Assignment Risk Event Edge Function
  *
@@ -25,9 +26,12 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+const ALLOWED_ORIGIN = Deno.env.get('ALLOWED_ORIGIN') ?? 'http://localhost:5173';
+function getCorsHeaders(): Record<string, string> {
+  return {
+    'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  };
 }
 
 // ── Known AI domains ───────────────────────────────────────────────
@@ -158,13 +162,13 @@ async function verifyDomainWithCatalog(
 Deno.serve(async (req) => {
   // CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
+    return new Response(null, { headers: getCorsHeaders() })
   }
 
   if (req.method !== 'POST') {
     return new Response(
       JSON.stringify({ error: 'Method not allowed. Use POST.' }),
-      { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      { status: 405, headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' } },
     )
   }
 
@@ -175,7 +179,7 @@ Deno.serve(async (req) => {
     if (!authHeader?.startsWith('Bearer ')) {
       return new Response(
         JSON.stringify({ error: 'Missing authorization header' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        { status: 401, headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' } },
       )
     }
 
@@ -193,7 +197,7 @@ Deno.serve(async (req) => {
     if (userError || !user) {
       return new Response(
         JSON.stringify({ error: 'Invalid or expired token' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        { status: 401, headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' } },
       )
     }
 
@@ -216,7 +220,7 @@ Deno.serve(async (req) => {
     if (!eventType) {
       return new Response(
         JSON.stringify({ error: 'Missing required field: type' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        { status: 400, headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' } },
       )
     }
 
@@ -229,7 +233,7 @@ Deno.serve(async (req) => {
     if (!validTypes.includes(eventType)) {
       return new Response(
         JSON.stringify({ error: `Invalid event type: ${eventType}` }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        { status: 400, headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' } },
       )
     }
 
@@ -272,7 +276,7 @@ Deno.serve(async (req) => {
       console.error('Failed to insert risk event:', insertError)
       return new Response(
         JSON.stringify({ error: 'Failed to store risk event' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        { status: 500, headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' } },
       )
     }
 
@@ -289,7 +293,7 @@ Deno.serve(async (req) => {
       // Event was stored — return success even if scoring fails
       return new Response(
         JSON.stringify({ success: true, scoring: 'deferred' }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        { status: 200, headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' } },
       )
     }
 
@@ -357,13 +361,13 @@ Deno.serve(async (req) => {
         risk_score: score,
         risk_level: level,
       }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      { status: 200, headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' } },
     )
   } catch (err) {
     console.error('Unhandled error in assignment-risk-event:', err)
     return new Response(
       JSON.stringify({ error: 'Internal server error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      { status: 500, headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' } },
     )
   }
 })

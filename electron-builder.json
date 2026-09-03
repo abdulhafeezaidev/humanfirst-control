@@ -23,5 +23,21 @@
     "oneClick": false,
     "perMachine": false,
     "allowToChangeInstallationDirectory": true
+  },
+  "linux": {
+    "icon": "public/favicon.ico",
+    "target": [
+      {
+        "target": "AppImage",
+        "arch": ["x64"]
+      },
+      {
+        "target": "deb",
+        "arch": ["x64"]
+      }
+    ],
+    "category": "Education",
+    "maintainer": "HumanFirst <admin@humanfirst.edu>",
+    "description": "Ethical AI usage control for education"
   }
 }

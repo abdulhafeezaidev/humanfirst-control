@@ -35,6 +35,21 @@ const UpgradeDialog = ({ open, onOpenChange, targetPlan }: UpgradeDialogProps) =
 
   const planConfig = PLAN_FEATURES[targetPlan];
 
+  /**
+   * BETA STUB — License activation is intentionally disabled for the beta release.
+   *
+   * SECURITY RATIONALE:
+   * The previous implementation performed a direct client-side DB mutation on
+   * `organizations.plan_type` after only a regex format check, allowing any user
+   * to self-upgrade to any plan tier for free.
+   *
+   * PRODUCTION IMPLEMENTATION SPEC (post-beta):
+   *   1. POST the license key to a Supabase Edge Function (`activate-license`).
+   *   2. The Edge Function verifies the key against a payment provider (e.g. Stripe).
+   *   3. The Edge Function uses the Supabase service role key to write the plan update server-side.
+   *   4. The client receives a success/failure response — it never touches the DB directly.
+   *   5. RLS on `organizations` must block direct client writes to `plan_type`.
+   */
   const handleActivateLicense = async () => {
     if (!licenseKey.trim()) {
       toast({
@@ -45,55 +60,17 @@ const UpgradeDialog = ({ open, onOpenChange, targetPlan }: UpgradeDialogProps) =
       return;
     }
 
-    setIsProcessing(true);
+    // BETA: Activation is processed manually by the HumanFirst team.
+    // Automated server-side validation will be enabled in v1.0.
+    toast({
+      title: 'License Request Received',
+      description:
+        'Your license key has been submitted. A HumanFirst admin will activate your plan within 24 hours. Contact: admin@humanfirst.edu',
+    });
 
-    // TODO: PRODUCTION REQUIREMENT - Replace with real license server validation
-    // This is a placeholder that validates format only. In production:
-    // 1. Call license validation edge function
-    // 2. Verify license with payment provider (Stripe, etc.)
-    // 3. Check license hasn't been used/revoked
-    // SECURITY: Never validate licenses client-side in production
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    const isValidKey = /^HF-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/i.test(licenseKey);
-    console.warn('[LICENSE] Using placeholder validation - implement real license server before production');
-
-    if (!isValidKey) {
-      toast({
-        title: 'Invalid license key',
-        description: 'Please check your license key and try again',
-        variant: 'destructive',
-      });
-      setIsProcessing(false);
-      return;
-    }
-
-    // Update organization plan
-    if (organization) {
-      const { error } = await supabase
-        .from('organizations')
-        .update({
-          plan_type: targetPlan,
-          pilot_expires_at: null, // Clear expiry for paid plans
-          max_devices: planConfig.limits.maxDevices,
-          max_admins: planConfig.limits.maxAdmins,
-          max_students: planConfig.limits.maxStudents,
-          features_enabled: planConfig.limits.featuresEnabled,
-        })
-        .eq('id', organization.id);
-
-      if (error) {
-        toast({
-          title: 'Upgrade failed',
-          description: 'There was an error upgrading your plan. Please try again.',
-          variant: 'destructive',
-        });
-        setIsProcessing(false);
-        return;
-      }
-    }
-
+    // Reset state and close after user sees the message
+    setLicenseKey('');
     setIsProcessing(false);
-    setStep('success');
   };
 
   const handleStartPayment = () => {

@@ -1,3 +1,4 @@
+/// <reference path="../esm.d.ts" />
 /**
  * Enforcement Metrics Edge Function
  * 
@@ -7,9 +8,12 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+const ALLOWED_ORIGIN = Deno.env.get('ALLOWED_ORIGIN') ?? 'http://localhost:5173';
+function getCorsHeaders(): Record<string, string> {
+  return {
+    'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  };
 }
 
 type AppRole = 'super_admin' | 'admin' | 'viewer' | 'student';
@@ -28,14 +32,14 @@ const PERIOD_DAYS: Record<string, number> = {
 Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: getCorsHeaders() });
   }
 
   // Only allow GET requests
   if (req.method !== 'GET') {
     return new Response(
       JSON.stringify({ error: 'Method not allowed. Use GET.' }),
-      { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 405, headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' } }
     );
   }
 
@@ -47,7 +51,7 @@ Deno.serve(async (req) => {
     if (!authHeader?.startsWith('Bearer ')) {
       return new Response(
         JSON.stringify({ error: 'Missing authorization header' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 401, headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -62,7 +66,7 @@ Deno.serve(async (req) => {
       console.error('JWT validation failed:', userError);
       return new Response(
         JSON.stringify({ error: 'Invalid or expired token' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 401, headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -77,7 +81,7 @@ Deno.serve(async (req) => {
       console.error('Failed to fetch user role:', roleError);
       return new Response(
         JSON.stringify({ error: 'User has no assigned role' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 403, headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -87,7 +91,7 @@ Deno.serve(async (req) => {
     if (!['super_admin', 'admin', 'viewer'].includes(userRole)) {
       return new Response(
         JSON.stringify({ error: 'Access denied. Only administrators can view metrics.' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 403, headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -102,7 +106,7 @@ Deno.serve(async (req) => {
       console.error('Failed to fetch organization:', profileError);
       return new Response(
         JSON.stringify({ error: 'User not associated with an organization' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 403, headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -128,7 +132,7 @@ Deno.serve(async (req) => {
       console.error('Failed to compute metrics:', metricsError);
       return new Response(
         JSON.stringify({ error: 'Failed to compute metrics', details: metricsError.message }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 500, headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -149,7 +153,7 @@ Deno.serve(async (req) => {
       { 
         status: 200, 
         headers: { 
-          ...corsHeaders, 
+          ...getCorsHeaders(), 
           'Content-Type': 'application/json',
           'Cache-Control': 'private, max-age=300', // 5 min client cache
         } 
@@ -160,7 +164,7 @@ Deno.serve(async (req) => {
     console.error('Metrics endpoint error:', error);
     return new Response(
       JSON.stringify({ error: 'Internal server error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' } }
     );
   }
 });

@@ -19,8 +19,14 @@ verify_jwt = true
 [functions.enforcement-metrics]
 verify_jwt = true
 
+# metrics-aggregator: handles on-demand requests (needs user JWT) and scheduled
+# cron jobs (authenticated via x-cron-secret header inside the function).
+# Gateway-level JWT is required so anonymous HTTP calls are rejected before
+# the function code runs. Scheduled invocations supply their own cron secret.
 [functions.metrics-aggregator]
-verify_jwt = false
+verify_jwt = true
 
+# data-export: high-privilege endpoint that exports ALL org data.
+# Must never be callable without a valid user JWT at the gateway level.
 [functions.data-export]
-verify_jwt = false
+verify_jwt = true

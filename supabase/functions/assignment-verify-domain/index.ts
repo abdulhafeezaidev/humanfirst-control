@@ -1,15 +1,14 @@
+/// <reference path="../esm.d.ts" />
 /* eslint-disable @typescript-eslint/no-explicit-any */
-declare const Deno: {
-  serve: (handler: (req: Request) => Promise<Response> | Response) => void
-  env: { get: (name: string) => string | undefined }
-}
-
 // @ts-ignore Deno edge runtime URL import
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-agent-api-key',
+const ALLOWED_ORIGIN = Deno.env.get('ALLOWED_ORIGIN') ?? 'http://localhost:5173';
+function getCorsHeaders(): Record<string, string> {
+  return {
+    'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-agent-api-key',
+  };
 }
 
 const KNOWN_AI_DOMAINS: ReadonlySet<string> = new Set([
@@ -57,13 +56,13 @@ type AiServiceRow = { domains: string[] | null }
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
+    return new Response(null, { headers: getCorsHeaders() })
   }
 
   if (req.method !== 'POST') {
     return new Response(
       JSON.stringify({ error: 'Method not allowed. Use POST.' }),
-      { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      { status: 405, headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' } },
     )
   }
 
@@ -74,14 +73,14 @@ Deno.serve(async (req: Request) => {
     if (!normalized) {
       return new Response(
         JSON.stringify({ error: 'Missing domain' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        { status: 400, headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' } },
       )
     }
 
     if (isKnownAiDomain(normalized)) {
       return new Response(
         JSON.stringify({ domain: normalized, category: 'ai', risk: 'high', source: 'known_list' }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        { status: 200, headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' } },
       )
     }
 
@@ -98,7 +97,7 @@ Deno.serve(async (req: Request) => {
       console.error('ai_services lookup failed:', error)
       return new Response(
         JSON.stringify({ domain: normalized, category: 'unknown', risk: 'low', source: 'db_error' }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        { status: 200, headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' } },
       )
     }
 
@@ -116,13 +115,13 @@ Deno.serve(async (req: Request) => {
         risk: matchesAiCatalog ? 'high' : 'low',
         source: 'ai_services',
       }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      { status: 200, headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' } },
     )
   } catch (err) {
     console.error('Unhandled error in assignment-verify-domain:', err)
     return new Response(
       JSON.stringify({ error: 'Internal server error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      { status: 500, headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' } },
     )
   }
 })

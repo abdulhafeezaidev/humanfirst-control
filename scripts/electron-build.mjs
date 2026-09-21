@@ -44,7 +44,8 @@ const outputDir = `desktop/dist/${mode}-${stamp}`;
 console.log(`[desktop] electron-builder output: ${outputDir}`);
 
 const { command: electronBuilder, prefixArgs } = electronBuilderInvocation();
-const baseArgs = [...prefixArgs, '--config', 'electron-builder.json', `-c.directories.output=${outputDir}`];
+const extraArgs = process.argv.slice(3);
+const baseArgs = [...prefixArgs, '--config', 'electron-builder.json', `-c.directories.output=${outputDir}`, ...extraArgs];
 
 if (mode === 'package') {
   run(electronBuilder, ['--dir', ...baseArgs]);

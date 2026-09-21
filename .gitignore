@@ -72,3 +72,5 @@ release/
 
 # Local scripts outputs
 *.pid
+.vercel
+.env*

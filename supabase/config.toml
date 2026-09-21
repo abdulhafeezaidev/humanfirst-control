@@ -30,3 +30,21 @@ verify_jwt = true
 # Must never be callable without a valid user JWT at the gateway level.
 [functions.data-export]
 verify_jwt = true
+
+[functions.assignment-risk-event]
+verify_jwt = true
+
+[functions.assignment-verify-domain]
+verify_jwt = true
+
+[functions.generate-integrity-report]
+verify_jwt = true
+
+[functions.sign-export]
+verify_jwt = true
+
+[functions.verify-export]
+verify_jwt = true
+
+[functions.activate-license]
+verify_jwt = true

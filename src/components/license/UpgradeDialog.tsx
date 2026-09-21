@@ -60,17 +60,26 @@ const UpgradeDialog = ({ open, onOpenChange, targetPlan }: UpgradeDialogProps) =
       return;
     }
 
-    // BETA: Activation is processed manually by the HumanFirst team.
-    // Automated server-side validation will be enabled in v1.0.
-    toast({
-      title: 'License Request Received',
-      description:
-        'Your license key has been submitted. A HumanFirst admin will activate your plan within 24 hours. Contact: admin@humanfirst.edu',
-    });
+    setIsProcessing(true);
 
-    // Reset state and close after user sees the message
-    setLicenseKey('');
-    setIsProcessing(false);
+    try {
+      const { data, error } = await supabase.functions.invoke('activate-license', {
+        body: { licenseKey: licenseKey.trim(), targetPlan },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      setStep('success');
+    } catch (err: any) {
+      toast({
+        title: 'Activation Failed',
+        description: err.message || 'Failed to activate license. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleStartPayment = () => {

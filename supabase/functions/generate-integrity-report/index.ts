@@ -1,8 +1,12 @@
+/// <reference path="../esm.d.ts" />
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+const ALLOWED_ORIGIN = Deno.env.get('ALLOWED_ORIGIN') ?? 'http://localhost:5173';
+function getCorsHeaders(): Record<string, string> {
+  return {
+    'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  };
 }
 
 interface GenerateReportRequest {
@@ -106,7 +110,7 @@ function violationToEnglish(v: ViolationLog): string {
 export async function handler(req: Request) {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', { headers: getCorsHeaders() })
   }
 
   try {
@@ -121,7 +125,7 @@ export async function handler(req: Request) {
     if (!student_id || !policy_id) {
       return new Response(
         JSON.stringify({ error: 'Missing student_id or policy_id' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        { status: 400, headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' } },
       )
     }
 
@@ -222,13 +226,13 @@ export async function handler(req: Request) {
     }
 
     return new Response(JSON.stringify(report), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' },
     })
   } catch (error) {
     console.error('Error generating report:', error)
     return new Response(JSON.stringify({ error: 'Failed to generate report' }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' },
     })
   }
 }

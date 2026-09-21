@@ -46,26 +46,31 @@ CREATE INDEX idx_violation_logs_event_type
 CREATE POLICY violation_logs_student_deny ON violation_logs
   FOR SELECT
   USING (
-    auth.uid() = student_id AND 
-    (SELECT role FROM profiles WHERE id = auth.uid()) = 'student'
-  )
-  WITH CHECK (false);
+    false -- Students should not be able to read violation logs at all
+  );
 
 -- Teachers/admins can only see violations in their org
 CREATE POLICY violation_logs_teacher_access ON violation_logs
   FOR SELECT
   USING (
-    org_id IN (
-      SELECT org_id FROM profiles WHERE id = auth.uid()
-    ) AND
-    (SELECT role FROM profiles WHERE id = auth.uid()) IN ('teacher', 'admin', 'super_admin')
+    EXISTS (
+      SELECT 1 FROM public.user_roles ur
+      JOIN public.profiles admin_p ON admin_p.user_id = ur.user_id
+      WHERE ur.user_id = auth.uid()
+        AND ur.role IN ('admin', 'super_admin', 'viewer')
+        AND admin_p.organization_id = violation_logs.org_id
+    )
   );
 
 -- Super admin can see everything
 CREATE POLICY violation_logs_super_admin_access ON violation_logs
   FOR SELECT
   USING (
-    (SELECT role FROM profiles WHERE id = auth.uid()) = 'super_admin'
+    EXISTS (
+      SELECT 1 FROM public.user_roles ur
+      WHERE ur.user_id = auth.uid()
+        AND ur.role = 'super_admin'
+    )
   );
 
 -- Only authenticated users can insert

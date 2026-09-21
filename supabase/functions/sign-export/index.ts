@@ -1,14 +1,13 @@
+/// <reference path="../esm.d.ts" />
 /* eslint-disable @typescript-eslint/no-explicit-any */
-declare const Deno: {
-  serve: (handler: (req: Request) => Promise<Response> | Response) => void
-  env: { get: (name: string) => string | undefined }
-}
-
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+const ALLOWED_ORIGIN = Deno.env.get('ALLOWED_ORIGIN') ?? 'http://localhost:5173';
+function getCorsHeaders(): Record<string, string> {
+  return {
+    'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  };
 }
 
 type ExportMetadata = {
@@ -33,12 +32,12 @@ function hmacSHA256(secret: string, payload: string): Promise<string> {
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
+    return new Response(null, { headers: getCorsHeaders() })
   }
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
       status: 405,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' },
     })
   }
 
@@ -47,7 +46,7 @@ Deno.serve(async (req: Request) => {
     if (!authHeader?.startsWith('Bearer ')) {
       return new Response(JSON.stringify({ error: 'Missing authorization header' }), {
         status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' },
       })
     }
 
@@ -58,7 +57,7 @@ Deno.serve(async (req: Request) => {
     if (!signingSecret) {
       return new Response(JSON.stringify({ error: 'Missing EXPORT_SIGNING_SECRET' }), {
         status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' },
       })
     }
 
@@ -71,7 +70,7 @@ Deno.serve(async (req: Request) => {
     if (userError || !user) {
       return new Response(JSON.stringify({ error: 'Invalid token' }), {
         status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' },
       })
     }
 
@@ -80,14 +79,14 @@ Deno.serve(async (req: Request) => {
     if (!metadata?.session_id || !metadata?.student_id || !metadata?.policy_id || !metadata?.org_id || !metadata?.content_hash || !metadata?.export_timestamp) {
       return new Response(JSON.stringify({ error: 'Invalid metadata payload' }), {
         status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' },
       })
     }
 
     if (metadata.student_id !== user.id) {
       return new Response(JSON.stringify({ error: 'Student mismatch' }), {
         status: 403,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' },
       })
     }
 
@@ -102,7 +101,7 @@ Deno.serve(async (req: Request) => {
     if (sessionError || !sessionRow) {
       return new Response(JSON.stringify({ error: 'Session is not active for this student' }), {
         status: 403,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' },
       })
     }
 
@@ -132,18 +131,18 @@ Deno.serve(async (req: Request) => {
     if (insertError) {
       return new Response(JSON.stringify({ error: insertError.message }), {
         status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' },
       })
     }
 
     return new Response(JSON.stringify({ signature, export_id: exportId }), {
       status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' },
     })
   } catch (err: any) {
     return new Response(JSON.stringify({ error: err?.message || 'Internal server error' }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' },
     })
   }
 })

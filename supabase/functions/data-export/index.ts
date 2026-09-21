@@ -1,3 +1,4 @@
+/// <reference path="../esm.d.ts" />
 /**
  * Data Export Edge Function
  * 
@@ -7,9 +8,16 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+// CORS: origin is driven by the ALLOWED_ORIGIN env var (set per-environment).
+// See supabase/functions/_shared/auth.ts for the canonical implementation.
+const ALLOWED_ORIGIN =
+  Deno.env.get('ALLOWED_ORIGIN') ?? 'http://localhost:5173';
+
+function getCorsHeaders(): Record<string, string> {
+  return {
+    'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  };
 }
 
 type AppRole = 'super_admin' | 'admin' | 'viewer' | 'student';
@@ -715,7 +723,7 @@ async function exportStorageObjects(supabase: any): Promise<any[]> {
 Deno.serve(async (req) => {
   // Handle CORS
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: getCorsHeaders() });
   }
 
   try {
@@ -725,7 +733,7 @@ Deno.serve(async (req) => {
     if ('error' in authResult) {
       return new Response(
         JSON.stringify({ error: authResult.error }),
-        { status: authResult.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: authResult.status, headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -733,7 +741,7 @@ Deno.serve(async (req) => {
     if (authResult.role !== 'admin' && authResult.role !== 'super_admin') {
       return new Response(
         JSON.stringify({ error: 'Access denied. Admin role required for data export.' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 403, headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -748,7 +756,7 @@ Deno.serve(async (req) => {
     if (!canProceed) {
       return new Response(
         JSON.stringify({ error: 'Rate limit exceeded. Please wait 10 minutes between exports.' }),
-        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 429, headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -795,7 +803,7 @@ Deno.serve(async (req) => {
       { 
         status: 200, 
         headers: { 
-          ...corsHeaders, 
+          ...getCorsHeaders(), 
           'Content-Type': 'application/json',
         } 
       }
@@ -804,7 +812,7 @@ Deno.serve(async (req) => {
     console.error('Export error:', error);
     return new Response(
       JSON.stringify({ error: 'Internal server error during export' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' } }
     );
   }
 });

@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS public.assignment_sessions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   student_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   policy_id uuid NOT NULL REFERENCES public.exam_policies(id) ON DELETE CASCADE,
-  assignment_id uuid REFERENCES public.assignments(id) ON DELETE CASCADE,
+  assignment_id text,
   started_at timestamptz NOT NULL DEFAULT now(),
   submitted_at timestamptz,
   status text NOT NULL DEFAULT 'active'
@@ -78,17 +78,17 @@ CREATE POLICY "Students can update own sessions"
   USING (auth.uid() = student_id)
   WITH CHECK (auth.uid() = student_id);
 
--- Teachers/admins can read sessions for assignments in their organization
+-- Teachers/admins can read sessions for students in their organization
 CREATE POLICY "Teachers can read org sessions"
   ON public.assignment_sessions FOR SELECT
   USING (
     EXISTS (
       SELECT 1 FROM public.user_roles ur
-      JOIN public.profiles p ON p.user_id = ur.user_id
-      JOIN public.assignments a ON a.id = assignment_id
+      JOIN public.profiles admin_p ON admin_p.user_id = ur.user_id
+      JOIN public.profiles student_p ON student_p.id = assignment_sessions.student_id
       WHERE ur.user_id = auth.uid()
-        AND ur.role IN ('admin', 'super_admin', 'teacher', 'viewer')
-        AND p.organization_id = a.organization_id
+        AND ur.role IN ('admin', 'super_admin', 'viewer')
+        AND admin_p.organization_id = student_p.organization_id
     )
   );
 

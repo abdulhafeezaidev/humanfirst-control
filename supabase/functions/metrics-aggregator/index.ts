@@ -1,3 +1,4 @@
+/// <reference path="../esm.d.ts" />
 /**
  * Metrics Aggregator Edge Function
  * 
@@ -14,15 +15,22 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret',
+// CORS: origin is driven by the ALLOWED_ORIGIN env var (set per-environment).
+// See supabase/functions/_shared/auth.ts for the canonical implementation.
+const ALLOWED_ORIGIN =
+  Deno.env.get('ALLOWED_ORIGIN') ?? 'http://localhost:5173';
+
+function getCorsHeaders(): Record<string, string> {
+  return {
+    'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret',
+  };
 }
 
 function unauthorized(message: string): Response {
   return new Response(
     JSON.stringify({ error: message }),
-    { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    { status: 401, headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' } }
   );
 }
 
@@ -61,7 +69,7 @@ interface ScheduledRequest {
 Deno.serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: getCorsHeaders() });
   }
 
   try {
@@ -146,7 +154,7 @@ Deno.serve(async (req) => {
         }),
         { 
           status: 200, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' } 
         }
       );
     }
@@ -157,7 +165,7 @@ Deno.serve(async (req) => {
       console.error('Missing authorization header');
       return new Response(
         JSON.stringify({ error: 'Missing authorization header' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 401, headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -172,7 +180,7 @@ Deno.serve(async (req) => {
       console.error('Token validation failed:', userError?.message || 'No user');
       return new Response(
         JSON.stringify({ error: 'Invalid or expired token' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 401, headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -194,7 +202,7 @@ Deno.serve(async (req) => {
       console.error(`Access denied for user ${userId}, role: ${roleData?.role}`);
       return new Response(
         JSON.stringify({ error: 'Access denied. Admin role required.' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 403, headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -213,14 +221,14 @@ Deno.serve(async (req) => {
       console.error(`User ${userId} not associated with an organization`);
       return new Response(
         JSON.stringify({ error: 'User not associated with an organization' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 403, headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' } }
       );
     }
 
     if (!profile?.organization_id) {
       return new Response(
         JSON.stringify({ error: 'User not associated with an organization' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 403, headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' } }
       );
     }
 
@@ -384,7 +392,7 @@ Deno.serve(async (req) => {
       { 
         status: 200, 
         headers: { 
-          ...corsHeaders, 
+          ...getCorsHeaders(), 
           'Content-Type': 'application/json',
           'Cache-Control': 'private, max-age=300',
         } 
@@ -395,7 +403,7 @@ Deno.serve(async (req) => {
     console.error('Metrics aggregator error:', error);
     return new Response(
       JSON.stringify({ error: 'Internal server error', details: String(error) }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...getCorsHeaders(), 'Content-Type': 'application/json' } }
     );
   }
 });

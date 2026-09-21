@@ -1,6 +1,7 @@
 {
   "recommendations": [
     "supabase.supabase",
+    "denoland.vscode-deno",
     "ms-azuretools.vscode-postgresql",
     "ckolkman.vscode-postgres",
     "uniquevision.vscode-plpgsql-lsp"

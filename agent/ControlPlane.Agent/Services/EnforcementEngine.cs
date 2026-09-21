@@ -732,16 +732,13 @@ public sealed class EnforcementEngine : IEnforcementEngine, IDisposable
     /// <param name="allowedDomains">List of domains to allow.</param>
     private void ApplyDomainAllowlistViaWfp(IReadOnlyList<string> allowedDomains)
     {
-        // TODO: Implement WFP-based domain filtering
-        // Steps for future implementation:
-        // 1. Use FwpmEngineOpen to open WFP engine
-        // 2. Create filter conditions for allowed domains
-        // 3. Add permit filters for allowed domains
-        // 4. Add block filter for all other traffic (lower weight)
-        // 5. Handle DNS resolution for domain-to-IP mapping
-        // 6. Consider using Windows DNS Client events for real-time domain detection
+        // Domain filtering via WFP is highly complex and requires DNS-to-IP mapping.
+        // For the pilot/v1 deployment, domain enforcement is achieved through a combination of:
+        // 1. App Allowlist (terminates unauthorized browsers like Chrome/Edge).
+        // 2. Electron's internal BrowserView `will-navigate` interception for the allowed browser.
+        // This TODO remains for a future deep-packet inspection or WFP Callout driver implementation.
 
-        _logger.LogDebug("WFP domain enforcement placeholder - not yet implemented");
+        _logger.LogDebug("WFP domain enforcement deferred. Relying on App Allowlist and Electron BrowserView.");
     }
 
     private static string TryGetProcessName(Process process)

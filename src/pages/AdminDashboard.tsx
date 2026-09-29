@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { 
   LogOut, Plus, Users, Clock, Calendar, 
   ToggleLeft, ToggleRight, Trash2, Edit2, X, Bot, Wifi, WifiOff, Radio, FileText,
-  AlertTriangle, Bell, Heart, Info, BarChart3
+  AlertTriangle, Bell, Heart, Info, BarChart3, Download
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -524,6 +524,14 @@ const AdminDashboard = () => {
             </div>
           </div>
           <div className="flex items-center gap-1 sm:gap-2">
+            <a
+              href="https://github.com/abdulhafeezaidev/humanfirst-control/releases/latest/download/HumanFirst.Control.Setup.0.1.0.exe"
+              className="text-primary hover:text-primary/80 transition-colors flex items-center gap-1 p-2 font-medium"
+              title="Download Desktop App"
+            >
+              <Download className="w-4 h-4" />
+              <span className="hidden sm:inline text-sm">Download App</span>
+            </a>
             <Link to="/trust" className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 p-2" title="Trust & Ethics">
               <Heart className="w-4 h-4" />
               <span className="hidden md:inline text-sm">Trust & Ethics</span>

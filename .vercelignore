@@ -1,0 +1,8 @@
+desktop/
+dist/
+node_modules/
+.cache/
+out/
+release/
+*.exe
+*.zip

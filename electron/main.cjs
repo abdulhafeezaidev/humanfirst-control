@@ -1,4 +1,5 @@
 const { app, BrowserWindow, BrowserView, ipcMain, session, shell, globalShortcut, powerMonitor } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const path = require('path');
 const crypto = require('crypto');
 const fs = require('fs');
@@ -884,6 +885,18 @@ function createMainWindow() {
 
 app.whenReady().then(async () => {
   initFileLogging();
+
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.checkForUpdatesAndNotify();
+
+  autoUpdater.on('update-available', (info) => {
+    console.log('[updater] Update available:', info.version);
+  });
+  
+  autoUpdater.on('update-downloaded', (info) => {
+    console.log('[updater] Update downloaded, will install on quit');
+  });
 
   try {
     const ses = session.defaultSession;

@@ -29,6 +29,7 @@ import {
 import InviteAdminDialog from '@/components/admin/InviteAdminDialog';
 import { useToast } from '@/hooks/use-toast';
 import { ROLE_DESCRIPTIONS, type AppRole } from '@/lib/adminHierarchy';
+import { getAppOrigin } from '@/lib/appUrl';
 
 interface TeamMember {
   user_id: string;
@@ -146,7 +147,7 @@ export const TeamManagementPage = () => {
   };
 
   const handleCopyInviteLink = (token: string) => {
-    const origin = window.location.origin;
+    const origin = getAppOrigin();
     const link = `${origin}/admin/signup?token=${token}`;
     navigator.clipboard.writeText(link);
     setCopiedToken(token);

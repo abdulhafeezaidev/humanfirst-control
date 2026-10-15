@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import InviteStudentDialog from '@/components/admin/InviteStudentDialog';
 import { useToast } from '@/hooks/use-toast';
+import { getAppOrigin } from '@/lib/appUrl';
 
 interface Student {
   user_id: string;
@@ -148,7 +149,7 @@ export const StudentsPage = () => {
   };
 
   const handleCopyInviteLink = (inv: StudentInvitation) => {
-    const origin = window.location.origin;
+    const origin = getAppOrigin();
     const link = `${origin}/student/signup?token=${inv.token}&email=${encodeURIComponent(inv.email)}&name=${encodeURIComponent(inv.full_name)}`;
     navigator.clipboard.writeText(link);
     setCopiedToken(inv.token);

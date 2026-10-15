@@ -24,6 +24,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { z } from 'zod';
 import { getAssignableRoles, ROLE_LABELS, ROLE_DESCRIPTIONS, type AppRole } from '@/lib/adminHierarchy';
+import { getAppOrigin } from '@/lib/appUrl';
 
 const inviteSchema = z.object({
   email: z.string().email('Please enter a valid email'),
@@ -117,7 +118,8 @@ const InviteAdminDialog = ({ onInviteSent, open: controlledOpen, onOpenChange }:
       }
 
       // Generate invite link
-      const link = `${window.location.origin}/admin/signup?token=${data.token}`;
+      const origin = getAppOrigin();
+      const link = `${origin}/admin/signup?token=${data.token}`;
       setInviteLink(link);
 
       toast({

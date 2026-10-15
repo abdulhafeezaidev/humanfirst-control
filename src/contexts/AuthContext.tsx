@@ -4,6 +4,7 @@ import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { getPermissions, isAdminRole, hasAdminViewAccess, canPerformMutations, Permissions, AppRole } from '@/lib/permissions';
 import { Organization } from '@/types/organization';
+import { getAppOrigin } from '@/lib/appUrl';
 
 interface AuthContextType {
   user: User | null;
@@ -141,7 +142,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signUp = async (email: string, password: string, fullName: string) => {
-    const redirectUrl = `${window.location.origin}/`;
+    const origin = getAppOrigin();
+    const redirectUrl = `${origin}/`;
     
     const { error } = await supabase.auth.signUp({
       email,

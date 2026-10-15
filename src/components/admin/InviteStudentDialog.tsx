@@ -23,6 +23,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { z } from 'zod';
+import { getAppOrigin } from '@/lib/appUrl';
 
 const inviteSchema = z.object({
   email: z.string().trim().email('Please enter a valid email').max(255, 'Email too long'),
@@ -156,9 +157,9 @@ const InviteStudentDialog = ({ onStudentAdded, open: controlledOpen, onOpenChang
         setIsSubmitting(false);
         return;
       }
-
       // Generate invite link with student-specific signup path
-      const link = `${window.location.origin}/student/signup?token=${data.token}&email=${encodeURIComponent(result.data.email)}&name=${encodeURIComponent(result.data.fullName)}`;
+      const origin = getAppOrigin();
+      const link = `${origin}/student/signup?token=${data.token}&email=${encodeURIComponent(result.data.email)}&name=${encodeURIComponent(result.data.fullName)}`;
       setInviteLink(link);
 
       toast({

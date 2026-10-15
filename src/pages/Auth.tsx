@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { z } from 'zod';
 import humanfirstLogo from '@/assets/humanfirst-logo.png';
+import { getAppOrigin } from '@/lib/appUrl';
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email'),
@@ -177,7 +178,8 @@ const Auth = () => {
         return;
       }
 
-      const redirectUrl = `${window.location.origin}/reset-password`;
+      const origin = getAppOrigin();
+      const redirectUrl = `${origin}/reset-password`;
       
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: redirectUrl,

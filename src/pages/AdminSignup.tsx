@@ -233,7 +233,16 @@ const AdminSignup = () => {
       
       setIsCreatingAccount(false);
       // Force refresh auth context
-      window.location.href = '/admin';
+      if (
+        (window as any).humanfirstDesktop?.isDesktop ||
+        window.location.protocol === 'file:' ||
+        window.location.hash.startsWith('#/')
+      ) {
+        window.location.hash = '#/admin';
+        window.location.reload();
+      } else {
+        window.location.href = '/admin';
+      }
     } finally {
       setIsSubmitting(false);
     }

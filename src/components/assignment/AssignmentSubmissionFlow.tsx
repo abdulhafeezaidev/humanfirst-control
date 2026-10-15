@@ -80,20 +80,14 @@ export function AssignmentSubmissionFlow({
       }
 
       const filePath = result.filePaths[0];
+      const selectedFile = (result as any).files?.[0];
 
-      // Get file size (Electron API)
-      let fileSize = 0;
-      try {
-        const fs = require('fs');
-        const stats = fs.statSync(filePath);
-        fileSize = Math.round(stats.size / 1024); // KB
-      } catch {
-        // Fallback: estimate based on path
-      }
+      // Get file size (from IPC result or fallback)
+      const fileSize = selectedFile?.sizeKb ?? 0;
+      const fileName = selectedFile?.name ?? filePath.split(/[/\\]/).pop() ?? filePath;
 
       // Lock file in state
       lockedFilePathRef.current = filePath;
-      const fileName = filePath.split('\\').pop() || filePath;
 
       setSubmissionState({
         stage: 'file_locked',

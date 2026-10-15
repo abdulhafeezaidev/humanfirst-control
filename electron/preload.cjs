@@ -119,6 +119,7 @@ contextBridge.exposeInMainWorld('humanfirstDesktop', {
       return {
         cancelled: !!res?.cancelled,
         filePaths: Array.isArray(res?.filePaths) ? res.filePaths : [],
+        files: Array.isArray(res?.files) ? res.files : [],
       };
     },
     openFolder: async (options) => {

@@ -1,6 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { LogOut, Heart, Info, AlertTriangle, Monitor, ArrowRight } from 'lucide-react';
+import { LogOut, Heart, Info, AlertTriangle, Monitor, ArrowRight, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
@@ -22,6 +22,7 @@ import TamperAlert from '@/components/TamperAlert';
 import PilotModeBanner from '@/components/PilotModeBanner';
 import StudentOnboarding from '@/components/onboarding/StudentOnboarding';
 import { useTamperDetection } from '@/hooks/useTamperDetection';
+import { useDesktopBackendSync } from '@/hooks/useDesktopBackendSync';
 import humanfirstLogo from '@/assets/humanfirst-logo.png';
 import {
   ActivePolicyCard,
@@ -70,6 +71,9 @@ const StudentDashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const assignmentModeDemoEnabled = import.meta.env.VITE_ASSIGNMENT_MODE_DEMO === 'true';
+  
+  // Real-time desktop sync with backend policies and agent
+  useDesktopBackendSync();
   
   // Data states
   const [policies, setPolicies] = useState<ExamPolicy[]>([]);
@@ -255,8 +259,12 @@ const StudentDashboard = () => {
   }, [unlockDialogOpen]);
 
   useEffect(() => {
-    if (!loading && (!user || role !== 'student')) {
-      navigate('/auth');
+    if (!loading) {
+      if (!user) {
+        navigate('/auth');
+      } else if (role === 'super_admin' || role === 'admin' || role === 'viewer') {
+        navigate('/admin');
+      }
     }
   }, [user, role, loading, navigate]);
 
@@ -601,6 +609,14 @@ const StudentDashboard = () => {
             </div>
           </div>
           <div className="flex items-center gap-1 sm:gap-2">
+            <a
+              href="https://github.com/abdulhafeezaidev/humanfirst-control/releases/latest/download/HumanFirst.Control.Setup.0.1.0.exe"
+              className="text-primary hover:text-primary/80 transition-colors flex items-center gap-1 p-2 font-medium"
+              title="Download Desktop App"
+            >
+              <Download className="w-4 h-4" />
+              <span className="hidden sm:inline text-sm">Download App</span>
+            </a>
             <Link
               to="/trust"
               className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 p-2"

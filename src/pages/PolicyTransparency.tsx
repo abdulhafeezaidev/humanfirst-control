@@ -10,6 +10,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
+import { getAppOrigin } from '@/lib/appUrl';
 
 interface ExamPolicy {
   id: string;
@@ -138,7 +139,8 @@ const PolicyTransparency = () => {
   const copyShareLink = () => {
     if (!enforcementConfig?.share_token) return;
     
-    const shareUrl = `${window.location.origin}/policy/share/${enforcementConfig.share_token}`;
+    const origin = getAppOrigin();
+    const shareUrl = `${origin}/policy/share/${enforcementConfig.share_token}`;
     navigator.clipboard.writeText(shareUrl);
     setCopied(true);
     toast({
@@ -299,7 +301,7 @@ const PolicyTransparency = () => {
                 <div className="flex gap-2">
                   <div className="flex-1 bg-muted rounded-lg px-3 py-2 text-sm truncate">
                     {enforcementConfig?.share_enabled && enforcementConfig?.share_token
-                      ? `${window.location.origin}/policy/share/${enforcementConfig.share_token}`
+                      ? `${getAppOrigin()}/policy/share/${enforcementConfig.share_token}`
                       : 'Enable sharing to generate link'}
                   </div>
                   <Button 

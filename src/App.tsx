@@ -41,6 +41,9 @@ const AssignmentModeFullPage = lazy(() => import("./pages/AssignmentModeFullPage
 const VerifySubmissionPage = lazy(() => import("./pages/VerifySubmissionPage"));
 const DesktopDiagnostics = lazy(() => import("./pages/DesktopDiagnostics"));
 
+import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import { AppRole } from "@/lib/permissions";
+
 const queryClient = new QueryClient();
 
 function shouldUseHashRouter() {
@@ -48,6 +51,59 @@ function shouldUseHashRouter() {
   if (window.humanfirstDesktop?.isDesktop) return true;
   return window.location.protocol === 'file:';
 }
+
+const adminRoles: AppRole[] = ['super_admin', 'admin', 'viewer'];
+const studentRoles: AppRole[] = ['student', 'super_admin', 'admin'];
+
+const AppRoutes = () => (
+  <Suspense
+    fallback={
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-pulse-soft text-primary">Loading…</div>
+      </div>
+    }
+  >
+    <Routes>
+      <Route path="/" element={<Index />} />
+      <Route path="/auth" element={<Auth />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
+      <Route path="/verify-email" element={<VerifyEmail />} />
+      <Route path="/admin/signup" element={<AdminSignup />} />
+
+      {/* Admin Protected Routes */}
+      <Route path="/admin" element={<ProtectedRoute allowedRoles={adminRoles}><AdminDashboardV2 /></ProtectedRoute>} />
+      <Route path="/admin/policies" element={<ProtectedRoute allowedRoles={adminRoles}><PolicyManagement /></ProtectedRoute>} />
+      <Route path="/admin/students" element={<ProtectedRoute allowedRoles={adminRoles}><StudentsPage /></ProtectedRoute>} />
+      <Route path="/admin/ai-services" element={<ProtectedRoute allowedRoles={adminRoles}><AiServicesPage /></ProtectedRoute>} />
+      <Route path="/admin/team" element={<ProtectedRoute allowedRoles={adminRoles}><TeamManagementPage /></ProtectedRoute>} />
+      <Route path="/admin/enforcement" element={<ProtectedRoute allowedRoles={adminRoles}><EnforcementPage /></ProtectedRoute>} />
+      <Route path="/admin/settings" element={<ProtectedRoute allowedRoles={adminRoles}><SettingsPage /></ProtectedRoute>} />
+      <Route path="/admin/data-export" element={<ProtectedRoute allowedRoles={adminRoles}><DataExport /></ProtectedRoute>} />
+      <Route path="/admin/logs" element={<ProtectedRoute allowedRoles={adminRoles}><AuditLogsPage /></ProtectedRoute>} />
+      <Route path="/admin/verify-submission" element={<ProtectedRoute allowedRoles={adminRoles}><VerifySubmissionPage /></ProtectedRoute>} />
+      <Route path="/admin/legacy" element={<ProtectedRoute allowedRoles={adminRoles}><AdminDashboard /></ProtectedRoute>} />
+      <Route path="/admin/policy-transparency" element={<ProtectedRoute allowedRoles={adminRoles}><PolicyTransparency /></ProtectedRoute>} />
+
+      {/* Student Protected Routes */}
+      <Route path="/student" element={<ProtectedRoute allowedRoles={['student']}><StudentDashboard /></ProtectedRoute>} />
+      <Route path="/student/signup" element={<Auth />} />
+      <Route path="/student/assignment-editor" element={<ProtectedRoute allowedRoles={studentRoles}><AssignmentEditorPage /></ProtectedRoute>} />
+      <Route path="/assignment/:assignmentId/mode" element={<ProtectedRoute allowedRoles={studentRoles}><AssignmentModeFullPage /></ProtectedRoute>} />
+
+      {/* Public / Diagnostic Routes */}
+      <Route path="/desktop-diagnostics" element={<DesktopDiagnostics />} />
+      <Route path="/policy/share/:token" element={<PublicPolicyShare />} />
+      <Route path="/trust" element={<TrustAndEthics />} />
+      <Route path="/pricing" element={<Pricing />} />
+      <Route path="/gtm" element={<GTMStrategy />} />
+      <Route path="/pitch" element={<PitchDeck />} />
+      <Route path="/threats" element={<ThreatModel />} />
+      <Route path="/architecture" element={<Architecture />} />
+      <Route path="/infrastructure" element={<Infrastructure />} />
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  </Suspense>
+);
 
 const App = () => (
   <>
@@ -60,95 +116,16 @@ const App = () => (
           <Sonner />
           {shouldUseHashRouter() ? (
             <HashRouter>
-            <Suspense
-              fallback={
-                <div className="min-h-screen bg-background flex items-center justify-center">
-                  <div className="animate-pulse-soft text-primary">Loading…</div>
-                </div>
-              }
-            >
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/auth" element={<Auth />} />
-                <Route path="/reset-password" element={<ResetPassword />} />
-                <Route path="/verify-email" element={<VerifyEmail />} />
-                <Route path="/admin/signup" element={<AdminSignup />} />
-                <Route path="/admin" element={<AdminDashboardV2 />} />
-                <Route path="/admin/policies" element={<PolicyManagement />} />
-                <Route path="/admin/students" element={<StudentsPage />} />
-                <Route path="/admin/ai-services" element={<AiServicesPage />} />
-                <Route path="/admin/team" element={<TeamManagementPage />} />
-                <Route path="/admin/enforcement" element={<EnforcementPage />} />
-                <Route path="/admin/settings" element={<SettingsPage />} />
-                <Route path="/admin/data-export" element={<DataExport />} />
-                <Route path="/admin/logs" element={<AuditLogsPage />} />
-                <Route path="/admin/verify-submission" element={<VerifySubmissionPage />} />
-                <Route path="/admin/legacy" element={<AdminDashboard />} />
-                <Route path="/admin/policy-transparency" element={<PolicyTransparency />} />
-                <Route path="/student" element={<StudentDashboard />} />
-                <Route path="/student/assignment-editor" element={<AssignmentEditorPage />} />
-                <Route path="/desktop-diagnostics" element={<DesktopDiagnostics />} />
-                <Route path="/assignment/:assignmentId/mode" element={<AssignmentModeFullPage />} />
-                <Route path="/policy/share/:token" element={<PublicPolicyShare />} />
-                <Route path="/trust" element={<TrustAndEthics />} />
-                <Route path="/pricing" element={<Pricing />} />
-                <Route path="/gtm" element={<GTMStrategy />} />
-                <Route path="/pitch" element={<PitchDeck />} />
-                <Route path="/threats" element={<ThreatModel />} />
-                <Route path="/architecture" element={<Architecture />} />
-                <Route path="/infrastructure" element={<Infrastructure />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </Suspense>
+              <AppRoutes />
             </HashRouter>
           ) : (
             <BrowserRouter>
-              <Suspense
-                fallback={
-                  <div className="min-h-screen bg-background flex items-center justify-center">
-                    <div className="animate-pulse-soft text-primary">Loading…</div>
-                  </div>
-                }
-              >
-                <Routes>
-                  <Route path="/" element={<Index />} />
-                  <Route path="/auth" element={<Auth />} />
-                  <Route path="/reset-password" element={<ResetPassword />} />
-                  <Route path="/verify-email" element={<VerifyEmail />} />
-                  <Route path="/admin/signup" element={<AdminSignup />} />
-                  <Route path="/admin" element={<AdminDashboardV2 />} />
-                  <Route path="/admin/policies" element={<PolicyManagement />} />
-                  <Route path="/admin/students" element={<StudentsPage />} />
-                  <Route path="/admin/ai-services" element={<AiServicesPage />} />
-                  <Route path="/admin/team" element={<TeamManagementPage />} />
-                  <Route path="/admin/enforcement" element={<EnforcementPage />} />
-                  <Route path="/admin/settings" element={<SettingsPage />} />
-                  <Route path="/admin/data-export" element={<DataExport />} />
-                   <Route path="/admin/logs" element={<AuditLogsPage />} />
-                   <Route path="/admin/verify-submission" element={<VerifySubmissionPage />} />
-                   <Route path="/admin/legacy" element={<AdminDashboard />} />
-                  <Route path="/admin/policy-transparency" element={<PolicyTransparency />} />
-                  <Route path="/student" element={<StudentDashboard />} />
-                  <Route path="/student/assignment-editor" element={<AssignmentEditorPage />} />
-                  <Route path="/desktop-diagnostics" element={<DesktopDiagnostics />} />
-                  <Route path="/assignment/:assignmentId/mode" element={<AssignmentModeFullPage />} />
-                  <Route path="/policy/share/:token" element={<PublicPolicyShare />} />
-                  <Route path="/trust" element={<TrustAndEthics />} />
-                  <Route path="/pricing" element={<Pricing />} />
-                  <Route path="/gtm" element={<GTMStrategy />} />
-                  <Route path="/pitch" element={<PitchDeck />} />
-                  <Route path="/threats" element={<ThreatModel />} />
-                  <Route path="/architecture" element={<Architecture />} />
-                  <Route path="/infrastructure" element={<Infrastructure />} />
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-              </Suspense>
+              <AppRoutes />
             </BrowserRouter>
           )}
         </AuthProvider>
       </TooltipProvider>
     </QueryClientProvider>
-
     </ThemeProvider>
   </>
 );

@@ -23,6 +23,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { z } from 'zod';
+import { getAppOrigin } from '@/lib/appUrl';
 
 const inviteSchema = z.object({
   email: z.string().trim().email('Please enter a valid email').max(255, 'Email too long'),
@@ -92,7 +93,41 @@ const InviteStudentDialog = ({ onStudentAdded, open: controlledOpen, onOpenChang
         return;
       }
 
-      // Create student invitation using dedicated student_invitations table
+      // 1. Check if student already exists in profiles
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('user_id, full_name, email, organization_id')
+        .ilike('email', result.data.email)
+        .maybeSingle();
+
+      if (existingProfile) {
+        // Enroll immediately into current organization
+        const { error: updateError } = await supabase
+          .from('profiles')
+          .update({
+            organization_id: organization.id,
+            full_name: result.data.fullName || existingProfile.full_name,
+          })
+          .eq('user_id', existingProfile.user_id);
+
+        if (updateError) throw updateError;
+
+        // Ensure user_roles has student
+        await supabase
+          .from('user_roles')
+          .upsert({ user_id: existingProfile.user_id, role: 'student' }, { onConflict: 'user_id' });
+
+        toast({
+          title: "Student Enrolled!",
+          description: `${result.data.email} is already registered and has been enrolled into ${organization.name || 'your institution'}.`,
+        });
+
+        onStudentAdded?.();
+        handleClose();
+        return;
+      }
+
+      // 2. Create student invitation using dedicated student_invitations table
       const { data, error } = await supabase
         .from('student_invitations')
         .insert({
@@ -122,9 +157,9 @@ const InviteStudentDialog = ({ onStudentAdded, open: controlledOpen, onOpenChang
         setIsSubmitting(false);
         return;
       }
-
       // Generate invite link with student-specific signup path
-      const link = `${window.location.origin}/student/signup?token=${data.token}&name=${encodeURIComponent(result.data.fullName)}`;
+      const origin = getAppOrigin();
+      const link = `${origin}/student/signup?token=${data.token}&email=${encodeURIComponent(result.data.email)}&name=${encodeURIComponent(result.data.fullName)}`;
       setInviteLink(link);
 
       toast({

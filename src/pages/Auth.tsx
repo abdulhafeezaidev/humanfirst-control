@@ -38,13 +38,23 @@ function friendlyAuthError(err: Error): string {
 type UserType = 'admin' | 'student' | null;
 type AuthView = 'selection' | 'login' | 'forgot-password';
 
+import { useSearchParams, useLocation } from 'react-router-dom';
+
 const Auth = () => {
-  const [userType, setUserType] = useState<UserType>(null);
-  const [authView, setAuthView] = useState<AuthView>('selection');
-  const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState('');
+  const [searchParams] = useSearchParams();
+  const location = useLocation();
+
+  const isStudentRoute = location.pathname.includes('/student/signup') || searchParams.get('role') === 'student';
+  const initialToken = searchParams.get('token');
+  const initialEmail = searchParams.get('email') || '';
+  const initialName = searchParams.get('name') || '';
+
+  const [userType, setUserType] = useState<UserType>(isStudentRoute ? 'student' : null);
+  const [authView, setAuthView] = useState<AuthView>(isStudentRoute ? 'login' : 'selection');
+  const [isLogin, setIsLogin] = useState(!initialToken);
+  const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
+  const [fullName, setFullName] = useState(initialName);
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [resetEmailSent, setResetEmailSent] = useState(false);
@@ -61,6 +71,36 @@ const Auth = () => {
       navigate(isAdminRole ? '/admin' : '/student');
     }
   }, [user, role, navigate]);
+
+  // If token is present and user successfully logs in/signs up, associate with org
+  useEffect(() => {
+    if (user && initialToken) {
+      const applyInvite = async () => {
+        try {
+          const { data: inv } = await supabase
+            .from('student_invitations')
+            .select('organization_id')
+            .eq('token', initialToken)
+            .maybeSingle();
+
+          if (inv?.organization_id) {
+            await supabase
+              .from('profiles')
+              .update({ organization_id: inv.organization_id })
+              .eq('user_id', user.id);
+
+            await supabase
+              .from('student_invitations')
+              .update({ used_at: new Date().toISOString() })
+              .eq('token', initialToken);
+          }
+        } catch (err) {
+          console.warn('Failed to apply student invite token:', err);
+        }
+      };
+      applyInvite();
+    }
+  }, [user, initialToken]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

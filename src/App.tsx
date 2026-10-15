@@ -86,6 +86,7 @@ const App = () => (
                 <Route path="/admin/legacy" element={<AdminDashboard />} />
                 <Route path="/admin/policy-transparency" element={<PolicyTransparency />} />
                 <Route path="/student" element={<StudentDashboard />} />
+                <Route path="/student/signup" element={<Auth />} />
                 <Route path="/student/assignment-editor" element={<AssignmentEditorPage />} />
                 <Route path="/desktop-diagnostics" element={<DesktopDiagnostics />} />
                 <Route path="/assignment/:assignmentId/mode" element={<AssignmentModeFullPage />} />
@@ -129,6 +130,7 @@ const App = () => (
                    <Route path="/admin/legacy" element={<AdminDashboard />} />
                   <Route path="/admin/policy-transparency" element={<PolicyTransparency />} />
                   <Route path="/student" element={<StudentDashboard />} />
+                  <Route path="/student/signup" element={<Auth />} />
                   <Route path="/student/assignment-editor" element={<AssignmentEditorPage />} />
                   <Route path="/desktop-diagnostics" element={<DesktopDiagnostics />} />
                   <Route path="/assignment/:assignmentId/mode" element={<AssignmentModeFullPage />} />

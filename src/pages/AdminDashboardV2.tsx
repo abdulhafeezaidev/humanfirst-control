@@ -83,10 +83,22 @@ const AdminDashboardV2 = () => {
   const desktopApi = typeof window !== 'undefined' ? window.humanfirstDesktop : undefined;
   const isDesktop = !!desktopApi?.isDesktop;
 
+  // Release any desktop student lockdown when admin logs in
+  useEffect(() => {
+    if (isDesktop && desktopApi) {
+      desktopApi.setAssignmentMode(false).catch(() => {});
+      desktopApi.setExamMode(false).catch(() => {});
+    }
+  }, [isDesktop, desktopApi]);
+
   // Redirect non-admins
   useEffect(() => {
-    if (!loading && (!user || !isAdmin)) {
-      navigate('/auth');
+    if (!loading) {
+      if (!user) {
+        navigate('/auth');
+      } else if (!isAdmin) {
+        navigate('/student');
+      }
     }
   }, [user, isAdmin, loading, navigate]);
 

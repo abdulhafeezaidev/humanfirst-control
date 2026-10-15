@@ -110,9 +110,13 @@ const Index = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
-    if (!loading && user && role) {
-      const isAdminRole = role === 'super_admin' || role === 'admin' || role === 'viewer';
-      navigate(isAdminRole ? '/admin' : '/student');
+    if (!loading) {
+      if (user && role) {
+        const isAdminRole = role === 'super_admin' || role === 'admin' || role === 'viewer';
+        navigate(isAdminRole ? '/admin' : '/student');
+      } else if (typeof window !== 'undefined' && ((window as any).humanfirstDesktop?.isDesktop || window.location.protocol === 'file:')) {
+        navigate('/auth');
+      }
     }
   }, [user, role, loading, navigate]);
 

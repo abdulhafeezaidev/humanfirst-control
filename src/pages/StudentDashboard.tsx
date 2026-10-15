@@ -22,6 +22,7 @@ import TamperAlert from '@/components/TamperAlert';
 import PilotModeBanner from '@/components/PilotModeBanner';
 import StudentOnboarding from '@/components/onboarding/StudentOnboarding';
 import { useTamperDetection } from '@/hooks/useTamperDetection';
+import { useDesktopBackendSync } from '@/hooks/useDesktopBackendSync';
 import humanfirstLogo from '@/assets/humanfirst-logo.png';
 import {
   ActivePolicyCard,
@@ -70,6 +71,9 @@ const StudentDashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const assignmentModeDemoEnabled = import.meta.env.VITE_ASSIGNMENT_MODE_DEMO === 'true';
+  
+  // Real-time desktop sync with backend policies and agent
+  useDesktopBackendSync();
   
   // Data states
   const [policies, setPolicies] = useState<ExamPolicy[]>([]);
@@ -255,8 +259,12 @@ const StudentDashboard = () => {
   }, [unlockDialogOpen]);
 
   useEffect(() => {
-    if (!loading && (!user || role !== 'student')) {
-      navigate('/auth');
+    if (!loading) {
+      if (!user) {
+        navigate('/auth');
+      } else if (role === 'super_admin' || role === 'admin' || role === 'viewer') {
+        navigate('/admin');
+      }
     }
   }, [user, role, loading, navigate]);
 

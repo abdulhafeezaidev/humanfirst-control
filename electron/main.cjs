@@ -1038,16 +1038,21 @@ app.whenReady().then(async () => {
   // ── Agent IPC via Named Pipe ──────────────────────────────
   ipcMain.handle('hf/agent:command', async (_event, payload) => {
     const command = String(payload?.command || '').toLowerCase();
-    const allowedWithoutPolicy = command === 'status' || command === 'ping';
+    const allowedWithoutPolicy = command === 'status' || command === 'ping' || command === 'push_policies';
     if (!agentPolicyEnabled && !allowedWithoutPolicy) {
       return {
         ok: false,
         error: 'Agent command blocked because no active policy has enabled agent enforcement.',
       };
     }
+    if (command === 'push_policies') {
+      agentPolicyEnabled = true;
+    }
 
     const net = require('net');
-    const PIPE_PATH = '\\\\.\\pipe\\ControlPlaneAgentPipe';
+    const PIPE_PATH = process.platform === 'win32'
+      ? '\\\\.\\pipe\\ControlPlaneAgentPipe'
+      : '/tmp/ControlPlaneAgentPipe.sock';
 
     return new Promise((resolve) => {
       const timeout = setTimeout(() => {
@@ -1269,12 +1274,26 @@ app.whenReady().then(async () => {
         filters: Array.isArray(options?.filters) ? options.filters : [{ name: 'All Files', extensions: ['*'] }],
         defaultPath: String(options?.defaultPath || ''),
       });
+      const filePaths = result.filePaths || [];
+      const files = filePaths.map((fp) => {
+        let sizeKb = 0;
+        try {
+          const stat = fs.statSync(fp);
+          sizeKb = Math.round(stat.size / 1024);
+        } catch {}
+        return {
+          path: fp,
+          name: path.basename(fp),
+          sizeKb,
+        };
+      });
       return {
         cancelled: result.canceled,
-        filePaths: result.filePaths || [],
+        filePaths,
+        files,
       };
     } catch (e) {
-      return { cancelled: true, filePaths: [], error: safeToString(e) };
+      return { cancelled: true, filePaths: [], files: [], error: safeToString(e) };
     }
   });
 
